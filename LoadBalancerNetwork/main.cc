@@ -17,6 +17,20 @@
 using namespace ns3;
 using namespace std;
 
+
+static void ReplicaReceivePacket(Ptr<Socket> socket) {
+    Ptr<Packet> packet;
+    Address from;
+    while ((packet = socket->RecvFrom(from))) {
+        InetSocketAddress fromAddr = InetSocketAddress::ConvertFrom(from);
+        Ipv4Address fromIpv4 = fromAddr.GetIpv4();
+            
+        uint32_t dataSize = packet->GetSize();
+        cout<<"CUSTOM REPLICA SERVER ";
+        std::cout << "Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;  
+    }    
+}
+
 int main (int argc, char *argv[]) {
     Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (1000));
     Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("100kb/s"));
@@ -93,6 +107,36 @@ int main (int argc, char *argv[]) {
     Ipv4InterfaceContainer interfaces01 = replicaAddressH.Assign(devices01);
     Ipv4InterfaceContainer interfaces12 = replicaAddressH.Assign(devices12);
     Ipv4InterfaceContainer interfaces23 = replicaAddressH.Assign(devices23);
+
+
+    //server on replica 1
+    Ptr<Node> rcv_1 = replicaNodes.Get(1); 
+    Ipv4Address rcv_addr_1 = rcv_1->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+    std::cout<<"rcv_1 address in the replica lan: "<<rcv_addr_1<<endl;
+    Ptr<Socket> serverSocket_1 = Socket::CreateSocket(rcv_1, UdpSocketFactory::GetTypeId()); 
+    InetSocketAddress localAddress_1 = InetSocketAddress(rcv_addr_1, 9090);
+    serverSocket_1->Bind(localAddress_1);
+    serverSocket_1->SetRecvCallback(MakeCallback(&ReplicaReceivePacket));
+
+    //server on replica 2
+    Ptr<Node> rcv_2 = replicaNodes.Get(2); 
+    Ipv4Address rcv_addr_2 = rcv_2->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+    std::cout<<"rcv_2 address in the replica lan: "<<rcv_addr_2<<endl;
+    Ptr<Socket> serverSocket_2 = Socket::CreateSocket(rcv_2, UdpSocketFactory::GetTypeId()); 
+    InetSocketAddress localAddress_2 = InetSocketAddress(rcv_addr_2, 9090);
+    serverSocket_2->Bind(localAddress_2);
+    serverSocket_2->SetRecvCallback(MakeCallback(&ReplicaReceivePacket));
+
+    //server on replica 3
+    Ptr<Node> rcv_3 = replicaNodes.Get(3); 
+    Ipv4Address rcv_addr_3 = rcv_3->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+    std::cout<<"rcv_3 address in the replica lan: "<<rcv_addr_3<<endl;
+    Ptr<Socket> serverSocket_3 = Socket::CreateSocket(rcv_3, UdpSocketFactory::GetTypeId()); 
+    InetSocketAddress localAddress_3 = InetSocketAddress(rcv_addr_3, 9090);
+    serverSocket_3->Bind(localAddress_3);
+    serverSocket_3->SetRecvCallback(MakeCallback(&ReplicaReceivePacket));
+
+
 
 
     //POPULATE ROUTING TABLE
@@ -182,6 +226,25 @@ int main (int argc, char *argv[]) {
 
 
 
+    //PING TEST FROM THE LOAD BALANCER TO ONE OF THE REPLICA SERVER - IT SHOULD PING 
+
+    //WARN -> IT DOES NOT PING
+
+    Ptr<Node> snd_3 = replicaNodes.Get(0); //take the load balancer
+    Ipv4Address snd_addr_3 = snd_3->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+    std::cout<<"load balancer address: "<<snd_addr_3<<endl<<endl;
+
+    UdpEchoClientHelper echoClient3 (rcv_addr_2, 9090);   
+    echoClient3.SetAttribute ("MaxPackets", UintegerValue (4));
+    echoClient3.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
+    echoClient3.SetAttribute ("PacketSize", UintegerValue (1024));
+
+    ApplicationContainer clientApps3 = echoClient3.Install (snd_3); //install on the node the udp client
+    clientApps3.Start (Seconds (2.0));
+    clientApps3.Stop (Seconds (10.0));
+
+
+
     //TEST WITH OBJECT AGGREGATION
     Ptr<Object> obj = CreateObject<Object>();
     Ptr<Socket> socket = Socket::CreateSocket(rcv2, UdpSocketFactory::GetTypeId());
@@ -214,6 +277,26 @@ int main (int argc, char *argv[]) {
     
 
 
+    
+    // AnimationInterface anim("demo_star2.xml");
+    // float x = 500.0, y = 500.0, dx = 50.0;
+
+    // anim.SetConstantPosition(star.GetHub(), x, y);
+    // anim.UpdateNodeColor(star.GetHub(), 255, 0, 0); // Red color for hub
+
+    // for (uint32_t i = 0; i < nSpokes; ++i) {
+    //     if (star.GetSpokeNode(i) == star.GetHub()) continue;
+    //     anim.SetConstantPosition(star.GetSpokeNode(i), x + dx * (i + 1), y);
+    //     anim.UpdateNodeColor(star.GetSpokeNode(i), 0, 255, 0); // Green color for spokes
+    // }   
+
+    // anim.SetConstantPosition(p2pNodes.Get(0), x + dx * (nSpokes + 2 + 1), y);
+    // anim.UpdateNodeColor(p2pNodes.Get(0), 0, 0, 255); // Blue color for p2pNodes.Get(0)
+
+    // for (uint32_t i = 0; i < replicaNodes.GetN(); ++i) {
+    //     anim.SetConstantPosition(replicaNodes.Get(i), x + dx * (i + 1) + 50, y + 50);
+    //     anim.UpdateNodeColor(star.GetSpokeNode(i), 255,255, 0); // Green color for spokes
+    // }
 
 
 
