@@ -9,6 +9,7 @@
 #include "ns3/mobility-module.h"
 
 #include "LoadBalancer.h"
+#include "CustomTag.h"
 
 /*
   star -> p2p -> lan 
@@ -18,18 +19,30 @@ using namespace ns3;
 using namespace std;
 
 
-// static void ReplicaReceivePacket(Ptr<Socket> socket) {
-//     Ptr<Packet> packet;
-//     Address from;
-//     while ((packet = socket->RecvFrom(from))) {
-//         InetSocketAddress fromAddr = InetSocketAddress::ConvertFrom(from);
-//         Ipv4Address fromIpv4 = fromAddr.GetIpv4();
-            
-//         uint32_t dataSize = packet->GetSize();
-//         cout<<"CUSTOM REPLICA SERVER ";
-//         std::cout << "Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;  
-//     }    
-// }
+static void ReplicaReceivePacket(Ptr<Socket> socket) {
+    Ptr<Packet> packet;
+    Address from;
+    while ((packet = socket->RecvFrom(from))) {
+        InetSocketAddress fromAddr = InetSocketAddress::ConvertFrom(from);
+        Ipv4Address fromIpv4 = fromAddr.GetIpv4();
+
+    
+        //each packet has a tag and it is used for managing the responses once the replica servers responde to the load balancer
+        
+        CustomTag tag;
+        tag.SetData(static_cast<uint>(packet->GetUid()));
+        packet->AddPacketTag(tag);
+
+        CustomTag retriviedTag;
+        packet->PeekPacketTag(retriviedTag);
+        cout<<"Retrivied packetTag: "<<retriviedTag.GetData()<<endl;
+
+        //there you should manage the response
+        uint32_t dataSize = packet->GetSize();
+        cout<<"CUSTOM REPLICA SERVER ";
+        std::cout << "Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;  
+    }    
+}
 
 int main (int argc, char *argv[]) {
     Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (1000));
@@ -156,7 +169,7 @@ int main (int argc, char *argv[]) {
     Ptr<Socket> serverSocket_1 = Socket::CreateSocket(repl_rcv_1, UdpSocketFactory::GetTypeId()); 
     InetSocketAddress localAddress_1 = InetSocketAddress(repl_rcv_addr_1, 9);
     serverSocket_1->Bind(localAddress_1);
-    serverSocket_1->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacket));
+    serverSocket_1->SetRecvCallback(MakeCallback(&ReplicaReceivePacket));
     
     /*
     // //server on replica 2
