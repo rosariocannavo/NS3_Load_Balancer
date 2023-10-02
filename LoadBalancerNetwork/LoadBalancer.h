@@ -39,14 +39,26 @@ class LoadBalancer : public Object{
                 Ipv4Address fromIpv4 = fromAddr.GetIpv4();
                     
                 uint32_t dataSize = packet->GetSize();
-                std::cout << "Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;
+
+                Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+                std::cout <<"LB: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;
 
 
                 Ptr<Node> selectedNode = RoundRobinSelection();
                 if (selectedNode != nullptr) {
-                    Ipv4Address addr = selectedNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-                    std::cout << "Selected Node address: " << addr<<endl;  // << std::endl;
-                    // Perform your operations with the selected node here
+                    Ipv4Address RRaddr = selectedNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+                    std::cout << "Selected RR Node address: " << RRaddr<<endl;  // << std::endl;
+
+                    //
+                    UdpEchoClientHelper test_client (RRaddr, 9);   
+                    test_client.SetAttribute ("MaxPackets", UintegerValue (1));
+                    test_client.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
+                    test_client.SetAttribute ("PacketSize", UintegerValue (1024));
+
+                    ApplicationContainer clientApps_aggr = test_client.Install(availableServers.Get(0)); //install the client on the first replicaserver = LB
+                    clientApps_aggr.Start (Seconds (1.0));
+                    clientApps_aggr.Stop (Seconds (20.0));
+                    //
 
                     
                 } else {
@@ -71,6 +83,7 @@ class LoadBalancer : public Object{
         static NodeContainer availableServers;
 
 
+        
         static Ptr<Node> RoundRobinSelection() {
             if (availableServers.GetN() == 0) {
                 return nullptr;  // No available servers

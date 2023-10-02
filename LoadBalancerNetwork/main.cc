@@ -10,6 +10,7 @@
 
 #include "LoadBalancer.h"
 #include "CustomTag.h"
+#include "ReplicaServer.h"
 
 /*
   star -> p2p -> lan 
@@ -18,39 +19,11 @@
 using namespace ns3;
 using namespace std;
 
-
-static void ReplicaReceivePacket(Ptr<Socket> socket) {
-    Ptr<Packet> packet;
-    Address from;
-    while ((packet = socket->RecvFrom(from))) {
-        InetSocketAddress fromAddr = InetSocketAddress::ConvertFrom(from);
-        Ipv4Address fromIpv4 = fromAddr.GetIpv4();
-
-    
-        //each packet has a tag and it is used for managing the responses once the replica servers responde to the load balancer
-        
-        CustomTag tag;
-        tag.SetData(static_cast<uint>(packet->GetUid()));
-        packet->AddPacketTag(tag);
-
-        CustomTag retriviedTag;
-        packet->PeekPacketTag(retriviedTag);
-        cout<<"Retrivied packetTag: "<<retriviedTag.GetData()<<endl;
-
-        //there you should manage the response
-        uint32_t dataSize = packet->GetSize();
-        cout<<"CUSTOM REPLICA SERVER ";
-        std::cout << "Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;  
-    }    
-}
-
 int main (int argc, char *argv[]) {
     Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (1000));
     Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("100kb/s"));
     Config::SetDefault ("ns3::OnOffApplication::MaxBytes", UintegerValue (50000));
    
-
-
     uint32_t nSpokes = 10;
     uint32_t seed = 123;
     CommandLine cmd;
@@ -124,6 +97,8 @@ int main (int argc, char *argv[]) {
     //Ipv4InterfaceContainer interfaces23 = replicaAddressH.Assign(devices23);
 
 
+    //Aggregate replicanodes with a ReplicaServer Class
+
     
     /*
     Need to fix this code -> more than one replica does not work
@@ -156,9 +131,6 @@ int main (int argc, char *argv[]) {
         interfaces[i] = replicaAddressH.Assign(devices[i]);
         cout<<"SANTO"<<endl;
     }
-
-
-   
     */
 
     
@@ -169,7 +141,7 @@ int main (int argc, char *argv[]) {
     Ptr<Socket> serverSocket_1 = Socket::CreateSocket(repl_rcv_1, UdpSocketFactory::GetTypeId()); 
     InetSocketAddress localAddress_1 = InetSocketAddress(repl_rcv_addr_1, 9);
     serverSocket_1->Bind(localAddress_1);
-    serverSocket_1->SetRecvCallback(MakeCallback(&ReplicaReceivePacket));
+    serverSocket_1->SetRecvCallback(MakeCallback(&ReplicaServer::ReplicaReceivePacket));
     
     /*
     // //server on replica 2
@@ -243,7 +215,7 @@ int main (int argc, char *argv[]) {
     
     */
     
-    /*   
+    /*
     //PING TEST FROM A NODE IN THE STAR TO THE LOAD BALANCER - IT SHOULD PING
 
     Ptr<Node> lb_rcv_test = p2pNodes.Get(0);
@@ -270,14 +242,42 @@ int main (int argc, char *argv[]) {
     ApplicationContainer clientApps2 = echoClient2.Install (star_snd_test); //install on the node the udp client
     clientApps2.Start (Seconds (2.0));
     clientApps2.Stop (Seconds (10.0));
+    
+
     */
 
+    //TEST WITH OBJECT AGGREGATION FROM STAR TO LB
+    Ptr<Node> lb_node = p2pNodes.Get(0);
+    Ipv4Address lb_node_addr = lb_node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+
+
+    Ptr<Object> obj = CreateObject<Object>();
+    Ptr<Socket> socket = Socket::CreateSocket(lb_node, UdpSocketFactory::GetTypeId());
+    obj->AggregateObject(socket);
+    InetSocketAddress localServerAddress = InetSocketAddress(lb_node_addr, 9);
+    obj->GetObject<Socket>()->Bind(localServerAddress);
+    obj->GetObject<Socket>()->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacket));
+    obj->AggregateObject(p2pNodes.Get(0));      //aggregate the LB nodes
+
+    Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(replicaNodes);
+    obj->AggregateObject(lb);
     
-   
+    Ptr<Node> snd2 = star.GetSpokeNode(1); //take the first node of the star
+    Ipv4Address snd_addr2 = snd2->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+    std::cout<<"snd address inside the star: "<<snd_addr2<<endl<<endl;
+
+    
+    UdpEchoClientHelper echoClient_aggr (lb_node_addr, 9);   
+    echoClient_aggr.SetAttribute ("MaxPackets", UintegerValue (1));
+    echoClient_aggr.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
+    echoClient_aggr.SetAttribute ("PacketSize", UintegerValue (1024));
+
+    ApplicationContainer clientApps_aggr = echoClient_aggr.Install (snd2); //install on the node the udp client
+    clientApps_aggr.Start (Seconds (1.0));
+    clientApps_aggr.Stop (Seconds (20.0));
+    
+    /*
     //PING TEST FROM THE LOAD BALANCER TO ONE OF THE REPLICA SERVER - IT SHOULD PING 
-
-  
-
     Ptr<Node> lb_snd_test = replicaNodes.Get(0); //take the load balancer
     Ipv4Address lb_snd_addr_test = lb_snd_test->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
 
@@ -295,42 +295,12 @@ int main (int argc, char *argv[]) {
     clientApps3.Start (Seconds (2.0));
     clientApps3.Stop (Seconds (10.0));
     
-    
-    /*
-
-    //TEST WITH OBJECT AGGREGATION
-    Ptr<Node> lb_node = p2pNodes.Get(0);
-    Ipv4Address lb_node_addr = lb_node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-
-
-    Ptr<Object> obj = CreateObject<Object>();
-    Ptr<Socket> socket = Socket::CreateSocket(lb_node, UdpSocketFactory::GetTypeId());
-    obj->AggregateObject(socket);
-    InetSocketAddress localServerAddress = InetSocketAddress(lb_node_addr, 9);
-    obj->GetObject<Socket>()->Bind(localServerAddress);
-    obj->GetObject<Socket>()->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacket));
-    obj->AggregateObject(p2pNodes.Get(0));      //aggregate the LB nodes
-
-    Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(replicaNodes);
-    obj->AggregateObject(lb);
+    */    
     
 
-
-    Ptr<Node> snd2 = star.GetSpokeNode(1); //take the first node of the star
-    Ipv4Address snd_addr2 = snd2->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    std::cout<<"snd address inside the star: "<<snd_addr2<<endl<<endl;
+ 
 
     
-    UdpEchoClientHelper echoClient_aggr (lb_node_addr, 9);   
-    echoClient_aggr.SetAttribute ("MaxPackets", UintegerValue (4));
-    echoClient_aggr.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-    echoClient_aggr.SetAttribute ("PacketSize", UintegerValue (1024));
-
-    ApplicationContainer clientApps_aggr = echoClient_aggr.Install (snd2); //install on the node the udp client
-    clientApps_aggr.Start (Seconds (2.0));
-    clientApps_aggr.Stop (Seconds (10.0));
-
-    */
 
 
     
