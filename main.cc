@@ -9,11 +9,11 @@
 #include "ns3/mobility-module.h"
 
 #include "LoadBalancer.h"
-#include "CustomTag.h"
 #include "ReplicaServer.h"
 
 /*
   star -> p2p -> lan 
+  star -> lb -> replica
 */
 
 using namespace ns3;
@@ -196,56 +196,10 @@ int main (int argc, char *argv[]) {
     else cout<<"FALSE"<<endl;
 
 
+    
+ 
+
     /*
-    
-    //PING TEST FROM A NODE IN THE STAR TO ONE REPLICA - IT SHOULD NOT PING
-    
-    Ptr<Node> star_snd_test = star.GetSpokeNode(1); //take the first node of the star
-    Ipv4Address star_snd_addr_test = star_snd_test->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    std::cout<<"snd address inside the star: "<<star_snd_addr_test<<endl<<endl;
-
-    UdpEchoClientHelper echoClient (repl_rcv_addr_1, 9);   
-    echoClient.SetAttribute ("MaxPackets", UintegerValue (4));
-    echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-    echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
-
-    ApplicationContainer clientApps = echoClient.Install (star_snd_test); //install on the node the udp client
-    clientApps.Start (Seconds (2.0));
-    clientApps.Stop (Seconds (10.0));
-    
-    */
-    
-    /*
-    //PING TEST FROM A NODE IN THE STAR TO THE LOAD BALANCER - IT SHOULD PING
-
-    Ptr<Node> lb_rcv_test = p2pNodes.Get(0);
-    Ipv4Address lb_rcv_addr_test = lb_rcv_test->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    std::cout<<"rcv address == load balancer: "<<lb_rcv_addr_test<<endl;
-
-    Ptr<Socket> serverSocket2 = Socket::CreateSocket(lb_rcv_test, UdpSocketFactory::GetTypeId()); 
-    InetSocketAddress localAddress2 = InetSocketAddress(lb_rcv_addr_test, 9);
-    serverSocket2->Bind(localAddress2);
-    serverSocket2->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacket));
-
-
-    //use the same client of before 
-    Ptr<Node> star_snd_test = star.GetSpokeNode(1); //take the first node of the star
-    Ipv4Address star_snd_addr_test = star_snd_test->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    std::cout<<"snd address inside the star: "<<star_snd_addr_test<<endl<<endl;
-
-    
-    UdpEchoClientHelper echoClient2 (lb_rcv_addr_test, 9);   
-    echoClient2.SetAttribute ("MaxPackets", UintegerValue (4));
-    echoClient2.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-    echoClient2.SetAttribute ("PacketSize", UintegerValue (1024));
-
-    ApplicationContainer clientApps2 = echoClient2.Install (star_snd_test); //install on the node the udp client
-    clientApps2.Start (Seconds (2.0));
-    clientApps2.Stop (Seconds (10.0));
-    
-
-    */
-
     //TEST WITH OBJECT AGGREGATION FROM STAR TO LB
     Ptr<Node> lb_node = p2pNodes.Get(0);
     Ipv4Address lb_node_addr = lb_node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
@@ -257,53 +211,54 @@ int main (int argc, char *argv[]) {
     InetSocketAddress localServerAddress = InetSocketAddress(lb_node_addr, 9);
     obj->GetObject<Socket>()->Bind(localServerAddress);
     obj->GetObject<Socket>()->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacket));
-    obj->AggregateObject(p2pNodes.Get(0));      //aggregate the LB nodes
 
+    obj->AggregateObject(p2pNodes.Get(0));      //aggregate the LB nodes
+    //this is were the load balancer get exposed
     Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(replicaNodes);
     obj->AggregateObject(lb);
-    
-    Ptr<Node> snd2 = star.GetSpokeNode(1); //take the first node of the star
-    Ipv4Address snd_addr2 = snd2->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    std::cout<<"snd address inside the star: "<<snd_addr2<<endl<<endl;
 
+
+    Ptr<Node> star_client_node = star.GetSpokeNode(1); //take the first node of the star
+    Ipv4Address star_client_node_addr = star_client_node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+    cout<<"node in the star ( "<<star_client_node_addr <<" ) contacting load balancer at addr: "<<lb_node_addr<<endl;
+    */
+
+
+    /*this class here is probably not needed because we want to simulate n requests*/
+    //CustomClient starClient = CustomClient(star_client_node);
+    //starClient.sendTo(lb_node_addr, 9, "ciao");
     
-    UdpEchoClientHelper echoClient_aggr (lb_node_addr, 9);   
+
+
+
+
+
+    //create a load balancer that expose itself
+    Ptr<Node> lb_node = p2pNodes.Get(0);
+    Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(lb_node, 9, replicaNodes);
+
+    //allocate a client in a random server in the star to contact the load balancer
+    UdpEchoClientHelper echoClient_aggr (lb->getAddress(), lb->getPort());   
     echoClient_aggr.SetAttribute ("MaxPackets", UintegerValue (1));
     echoClient_aggr.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
     echoClient_aggr.SetAttribute ("PacketSize", UintegerValue (1024));
+    
+    Ptr<Node> star_client_node = star.GetSpokeNode(1); //take the first node of the star
+    Ipv4Address star_client_node_addr = star_client_node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+    cout<<"node in the star ( "<<star_client_node_addr <<" ) contacting load balancer at addr: "<<lb->getAddress()<<endl;
 
-    ApplicationContainer clientApps_aggr = echoClient_aggr.Install (snd2); //install on the node the udp client
+    ApplicationContainer clientApps_aggr = echoClient_aggr.Install (star_client_node); //install on the node the udp client
     clientApps_aggr.Start (Seconds (1.0));
     clientApps_aggr.Stop (Seconds (20.0));
     
-    /*
-    //PING TEST FROM THE LOAD BALANCER TO ONE OF THE REPLICA SERVER - IT SHOULD PING 
-    Ptr<Node> lb_snd_test = replicaNodes.Get(0); //take the load balancer
-    Ipv4Address lb_snd_addr_test = lb_snd_test->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
 
-    cout<<"LOAD BALANCER ID: "<<lb_snd_test->GetId()<<endl;
-
-    cout<<"load balancer address: "<<lb_snd_addr_test<<endl;
-    cout<<"server address: "<<repl_rcv_addr_1<<endl<<endl;
-
-    UdpEchoClientHelper echoClient3 (repl_rcv_addr_1, 9);   
-    echoClient3.SetAttribute ("MaxPackets", UintegerValue (4));
-    echoClient3.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-    echoClient3.SetAttribute ("PacketSize", UintegerValue (1024));
-
-    ApplicationContainer clientApps3 = echoClient3.Install (lb_snd_test); //install on the node the udp client
-    clientApps3.Start (Seconds (2.0));
-    clientApps3.Stop (Seconds (10.0));
-    
-    */    
     
 
  
 
-    
 
+ 
 
-    
     // AnimationInterface anim("demo_star2.xml");
     // float x = 500.0, y = 500.0, dx = 50.0;
 

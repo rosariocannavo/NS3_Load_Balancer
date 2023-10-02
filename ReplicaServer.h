@@ -8,16 +8,18 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/udp-echo-server.h"
 
-#include <vector>
 
 using namespace ns3;
 using namespace std;
 
 class ReplicaServer : public Object {
   public:
+
     ReplicaServer() {}
 
+
     ~ReplicaServer() {}
+
 
     static TypeId GetTypeId(void) {
         static TypeId tid = TypeId("ReplicaServer")
@@ -26,6 +28,7 @@ class ReplicaServer : public Object {
                                 .AddConstructor<ReplicaServer>();
         return tid;
     }
+
 
     static void ReplicaReceivePacket(Ptr<Socket> socket) {
         Ptr<Packet> packet;
@@ -37,23 +40,21 @@ class ReplicaServer : public Object {
             // each packet has a tag and it is used for managing the responses once the replica
             // servers responde to the load balancer
 
-            CustomTag tag;
-            tag.SetData(static_cast<uint>(packet->GetUid()));
-            packet->AddPacketTag(tag);
+            Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+
+            //collecting payload                        
+            uint32_t dataSize = packet->GetSize();
+            uint8_t *buffer = new uint8_t[packet->GetSize ()];
+            packet->CopyData(buffer, packet->GetSize ());
+            std::string payload = std::string((char*)buffer);
+
+            std::cout<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender "<<endl;
 
             CustomTag retriviedTag;
             packet->PeekPacketTag(retriviedTag);
-            cout << "Retrivied packetTag: " << retriviedTag.GetData() << endl;
 
-            // there you should manage the response
-            uint32_t dataSize = packet->GetSize();
-            
-            Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-
-            std::cout<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<< std::endl;
+            cout << "REPLICA: Retrivied packetTag: " << retriviedTag.GetData() << endl;
         }
     }
-
-  private:
 
 };

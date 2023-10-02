@@ -5,7 +5,7 @@
 using namespace ns3;
 using namespace CryptoPP;
 
-
+//could use the tag to pass tokens
 class CustomTag : public Tag {
   public:
     static TypeId GetTypeId(void);
@@ -35,29 +35,36 @@ TypeId CustomTag::GetTypeId(void) {
     return tid;
 }
 
+
 TypeId CustomTag::GetInstanceTypeId(void) const {
     return GetTypeId();
 }
+
 
 uint32_t CustomTag::GetSerializedSize(void) const {
     return 1;
 }
 
+
 void CustomTag::Serialize(TagBuffer i) const {
     i.WriteU8(m_simpleValue);
 }
+
 
 void CustomTag::Deserialize(TagBuffer i) {
     m_simpleValue = i.ReadU8();
 }
 
+
 void CustomTag::Print(std::ostream& os) const {
     os << "v=" << (uint32_t)m_simpleValue;
 }
 
+
 void CustomTag::SetData(uint value) {
     m_simpleValue = value;
 }
+
 
 uint CustomTag::GetData(void) const {
     return m_simpleValue;
