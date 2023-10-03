@@ -16,20 +16,26 @@
 using namespace ns3;
 using namespace std;
 
-
-class LoadBalancer : public Object{
+class LoadBalancer : public Object {
     public:
         /*at allocation time load balancer expose a udp server and knows all the replica servers available*/
-        LoadBalancer(Ptr<Node> lbNode, uint exposingPort, NodeContainer availableServers) {
+        LoadBalancer(Ptr<Node> lbNode, uint exposingClientPort, uint exposingReplicaPort, NodeContainer availableServers) {
             this->lbNode = lbNode;
-            this->exposingPort = exposingPort;
+            this->exposingReplicaPort = exposingReplicaPort;
+            this->exposingClientPort = exposingClientPort;
             this->availableServers = availableServers;
 
-            this->socket = Socket::CreateSocket(this->lbNode, UdpSocketFactory::GetTypeId());
-            this->lbAddr = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-            
-            this->socket->Bind(InetSocketAddress(lbAddr, exposingPort));
-            this->socket->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacket));
+            this->lbAddrToStarInterface = this->lbNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+            this->lbAddrToReplicaInterface = this->lbNode->GetObject<Ipv4>()->GetAddress(2,0).GetLocal();
+            /*allocate client side socket*/
+            this->clientSocket = Socket::CreateSocket(this->lbNode, UdpSocketFactory::GetTypeId());
+            this->clientSocket->Bind(InetSocketAddress(lbAddrToStarInterface, exposingClientPort));
+            this->clientSocket->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacketFromClient));
+
+            /*allocate replica side socket*/
+            this->replicaSocket = Socket::CreateSocket(this->lbNode, UdpSocketFactory::GetTypeId());
+            this->replicaSocket->Bind(InetSocketAddress(lbAddrToReplicaInterface, exposingReplicaPort));
+            this->replicaSocket->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacketFromReplica, this));
         }
 
 
@@ -38,8 +44,34 @@ class LoadBalancer : public Object{
 
         ~LoadBalancer() {}
 
-     
-        static void ReceivePacket(Ptr<Socket> socket) {
+
+        //this function wait for a communication from the load balancer as response
+        void ReceivePacketFromReplica(Ptr<Socket> socket) {
+            Ptr<Packet> packet;
+            Address from;
+
+            while ((packet = socket->RecvFrom(from))) {
+                InetSocketAddress fromAddr = InetSocketAddress::ConvertFrom(from);
+                Ipv4Address fromIpv4 = fromAddr.GetIpv4();
+
+                uint32_t dataSize = packet->GetSize();
+
+                Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+
+                uint8_t *buffer = new uint8_t[packet->GetSize ()];
+                packet->CopyData(buffer, packet->GetSize ());
+                std::string payload = std::string((char*)buffer);
+
+                cout <<"LBfromReplica: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << " which is a replicaserver, to send to"<<payload<<endl;
+                
+                //!!! create a custom client here to reply to the correct client 
+            }
+        }
+
+
+        //this function wait a communication from the clients and redirect it to the replica servers
+        //has to be static for the round robin fact
+        static void ReceivePacketFromClient(Ptr<Socket> socket) {
             Ptr<Packet> packet;
             Address from;
 
@@ -50,8 +82,12 @@ class LoadBalancer : public Object{
                 uint32_t dataSize = packet->GetSize();
 
                 Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-                std::cout <<"LB: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;
 
+
+                //this is the point where we could implement a cache and a sticky behaviour
+
+
+                std::cout <<"LB: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;
 
                 Ptr<Node> selectedNode = RoundRobinSelection();
 
@@ -61,14 +97,15 @@ class LoadBalancer : public Object{
                     std::cout << "LB: selected RR Node address: " << RRaddr<<endl;  
 
                     CustomTag tag;
+                    tag.SetData(packet->GetUid());
                     cout<<"LB: adding tag "<<packet->GetUid()<<" to packet"<<endl; 
 
                     //convert ipv4addr to string
                     std::ostringstream oss;
                     oss << fromIpv4;
-
-                    CustomClient lbClient = CustomClient(availableServers.Get(0));
-                    lbClient.sendTo(RRaddr, 9, oss.str() , tag);
+                    cout<<"LB: sending message to the selected replica server: "<<RRaddr<<endl;
+                    Ptr<CustomClient> lbClient = CreateObject<CustomClient>(availableServers.Get(0));
+                    lbClient->sendTo(RRaddr, 9, oss.str() , tag);
                 
                 } else {
                     std::cout << "No available servers." << std::endl;
@@ -77,13 +114,22 @@ class LoadBalancer : public Object{
         }
 
 
-        Ipv4Address getAddress() {
-            return this->lbAddr;
+        Ipv4Address getAddressForClient() {
+            return this->lbAddrToStarInterface;
+        }
+
+        Ipv4Address getAddressForReplica() {
+            return this->lbAddrToReplicaInterface;
         }
 
 
-        uint getPort() {
-            return this->exposingPort;
+        uint getClientPort() {
+            return this->exposingClientPort;
+        }
+
+
+        uint getReplicaPort() {
+            return this->exposingReplicaPort;
         }
         
 
@@ -93,31 +139,31 @@ class LoadBalancer : public Object{
             .SetGroupName ("Demo")
             .AddConstructor<LoadBalancer> ();
             return tid;
-         }
+        }
+
 
     private:
-
-        uint exposingPort;
         Ptr<Node> lbNode;
-        Ipv4Address lbAddr; 
-        Ptr<Socket> socket; 
+        Ipv4Address lbAddrToStarInterface;
+        Ipv4Address lbAddrToReplicaInterface;
+
+        uint exposingReplicaPort;
+        uint exposingClientPort;
+        Ptr<Socket> clientSocket; 
+        Ptr<Socket> replicaSocket;
         static uint32_t currentRRIndex;
         static NodeContainer availableServers;
 
 
         static Ptr<Node> RoundRobinSelection() {
-                if (availableServers.GetN() == 0) {
-                    return nullptr;  // No available servers
-                }
-        
-                currentRRIndex = (currentRRIndex + 1) % availableServers.GetN();
-        
-            if (currentRRIndex == 0) {
-                // Skip index 0, move to the next index
-                currentRRIndex = 1;
-            }
-            
+            if (availableServers.GetN() == 0) { return nullptr; }
+
+            currentRRIndex = (currentRRIndex + 1) % availableServers.GetN();
+
+            if (currentRRIndex == 0) { currentRRIndex = 1; }
+
             Ptr<Node> selectedNode = availableServers.Get(currentRRIndex);
+
             return selectedNode;
         }
 

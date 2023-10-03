@@ -13,10 +13,8 @@
 using namespace ns3;
 using namespace std;
 
-class CustomClient {
+class CustomClient : public Object {
     public:
-
-        CustomClient() {}
 
         CustomClient(Ptr<Node> node) {
             this->node = node;
@@ -25,11 +23,14 @@ class CustomClient {
         }
 
 
+        CustomClient() {}
+
+
         ~CustomClient() {}
 
-
+    
         void sendTo(Ipv4Address receiver, uint bindingPort, string message,  CustomTag tag) {
-            cout<<"I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message "<<message<<" to "<<receiver<<" on port "<<bindingPort<<endl;
+            cout<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" with tag: \""<<tag.GetData()<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
 
             this->socket->Connect(InetSocketAddress(receiver, bindingPort));
 
@@ -42,7 +43,7 @@ class CustomClient {
 
 
         void sendTo(Ipv4Address receiver, uint bindingPort, string message) {
-            cout<<"I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message "<<message<<" to "<<receiver<<" on port "<<bindingPort<<endl;
+            cout<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
 
             this->socket->Connect(InetSocketAddress(receiver, bindingPort));
 
@@ -50,6 +51,15 @@ class CustomClient {
 
             this->socket->Send(packet);
         }
+
+        static TypeId GetTypeId (void) {
+            static TypeId tid = TypeId ("CustomClient")
+            .SetParent<Object> ()
+            .SetGroupName ("Demo")
+            .AddConstructor<CustomClient> ();
+            return tid;
+        }
+
 
 
     private:

@@ -15,22 +15,25 @@ using namespace std;
 class ReplicaServer : public Object {
   public:
 
+    ReplicaServer(Ptr<Node> replicaNode, uint exposingReplicaPort) {
+        this->replicaNode = replicaNode;
+        this->exposingReplicaPort = exposingReplicaPort;
+        this->replicaAddr =  this->replicaNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+
+        /*allocate the replica server*/
+        this->socket = Socket::CreateSocket(this->replicaNode, UdpSocketFactory::GetTypeId());
+        this->socket->Bind(InetSocketAddress(replicaAddr, exposingReplicaPort));
+        this->socket->SetRecvCallback(MakeCallback(&ReplicaServer::ReplicaReceivePacket, this));
+    }
+
+
     ReplicaServer() {}
 
 
     ~ReplicaServer() {}
 
 
-    static TypeId GetTypeId(void) {
-        static TypeId tid = TypeId("ReplicaServer")
-                                .SetParent<Object>()
-                                .SetGroupName("Demo")
-                                .AddConstructor<ReplicaServer>();
-        return tid;
-    }
-
-
-    static void ReplicaReceivePacket(Ptr<Socket> socket) {
+    void ReplicaReceivePacket(Ptr<Socket> socket) {
         Ptr<Packet> packet;
         Address from;
         while ((packet = socket->RecvFrom(from))) {
@@ -44,6 +47,7 @@ class ReplicaServer : public Object {
 
             //collecting payload                        
             uint32_t dataSize = packet->GetSize();
+
             uint8_t *buffer = new uint8_t[packet->GetSize ()];
             packet->CopyData(buffer, packet->GetSize ());
             std::string payload = std::string((char*)buffer);
@@ -53,8 +57,37 @@ class ReplicaServer : public Object {
             CustomTag retriviedTag;
             packet->PeekPacketTag(retriviedTag);
 
-            cout << "REPLICA: Retrivied packetTag: " << retriviedTag.GetData() << endl;
+            /* replying to the load balancer using the other port -> done instantiating a custom client*/
+            cout<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<retriviedTag.GetData()<<endl;
+            Ptr<CustomClient> replicaClient = CreateObject<CustomClient>(this->replicaNode);
+            replicaClient->sendTo(fromIpv4, 10, payload, retriviedTag);
+
         }
     }
+
+
+    uint getReplicaPort() {
+        return this->exposingReplicaPort;
+    }
+
+
+    Ipv4Address getReplicaAddr() {
+        return this->replicaAddr;
+    }
+
+
+    static TypeId GetTypeId(void) {
+        static TypeId tid = TypeId("ReplicaServer")
+                                .SetParent<Object>()
+                                .SetGroupName("Demo")
+                                .AddConstructor<ReplicaServer>();
+        return tid;
+    }
+
+    private:
+        Ptr<Node> replicaNode;
+        Ipv4Address replicaAddr; 
+        Ptr<Socket> socket; 
+        uint exposingReplicaPort;
 
 };

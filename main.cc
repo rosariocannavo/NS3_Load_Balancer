@@ -129,43 +129,12 @@ int main (int argc, char *argv[]) {
     for(uint i=0; i<2;i++) {
         
         interfaces[i] = replicaAddressH.Assign(devices[i]);
-        cout<<"SANTO"<<endl;
+       
     }
     */
 
-    
-    //server on replica 1
-    Ptr<Node> repl_rcv_1 = replicaNodes.Get(1); 
-    Ipv4Address repl_rcv_addr_1 = repl_rcv_1->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    std::cout<<"repl_rcv_addr_1 address in the replica lan: "<<repl_rcv_addr_1<<endl;
-    Ptr<Socket> serverSocket_1 = Socket::CreateSocket(repl_rcv_1, UdpSocketFactory::GetTypeId()); 
-    InetSocketAddress localAddress_1 = InetSocketAddress(repl_rcv_addr_1, 9);
-    serverSocket_1->Bind(localAddress_1);
-    serverSocket_1->SetRecvCallback(MakeCallback(&ReplicaServer::ReplicaReceivePacket));
-    
-    /*
-    // //server on replica 2
-    Ptr<Node> repl_rcv_2 = replicaNodes.Get(2); 
-    Ipv4Address repl_rcv_addr_2 = repl_rcv_2->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    std::cout<<"repl_rcv_addr_2 address in the replica lan: "<<repl_rcv_addr_2<<endl;
-    Ptr<Socket> serverSocket_2 = Socket::CreateSocket(repl_rcv_2, UdpSocketFactory::GetTypeId()); 
-    InetSocketAddress localAddress_2 = InetSocketAddress(repl_rcv_addr_2, 9);
-    serverSocket_2->Bind(localAddress_2);
-    serverSocket_2->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacket));
-
-    // //server on replica 3
-    Ptr<Node> repl_rcv_3 = replicaNodes.Get(3); 
-    Ipv4Address repl_rcv_addr_3 = repl_rcv_3->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    std::cout<<"repl_rcv_addr_3 address in the replica lan: "<<repl_rcv_addr_3<<endl;
-    Ptr<Socket> serverSocket_3 = Socket::CreateSocket(repl_rcv_3, UdpSocketFactory::GetTypeId()); 
-    InetSocketAddress localAddress_3 = InetSocketAddress(repl_rcv_addr_3, 9);
-    serverSocket_3->Bind(localAddress_3);
-    serverSocket_3->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacket));
-
-    */
-
-
-    
+    //Allocate a ReplicaServer server on replica 1
+    Ptr<ReplicaServer> replicaServer1 = CreateObject<ReplicaServer>(replicaNodes.Get(1), 9);
 
 
     // //PRINT ADDRESS BETWEEN STAR P2P AND REPLICA
@@ -218,10 +187,6 @@ int main (int argc, char *argv[]) {
     obj->AggregateObject(lb);
 
 
-    Ptr<Node> star_client_node = star.GetSpokeNode(1); //take the first node of the star
-    Ipv4Address star_client_node_addr = star_client_node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    cout<<"node in the star ( "<<star_client_node_addr <<" ) contacting load balancer at addr: "<<lb_node_addr<<endl;
-    */
 
 
     /*this class here is probably not needed because we want to simulate n requests*/
@@ -229,23 +194,19 @@ int main (int argc, char *argv[]) {
     //starClient.sendTo(lb_node_addr, 9, "ciao");
     
 
-
-
-
-
     //create a load balancer that expose itself
     Ptr<Node> lb_node = p2pNodes.Get(0);
-    Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(lb_node, 9, replicaNodes);
+    Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(lb_node, 9,10, replicaNodes);
 
     //allocate a client in a random server in the star to contact the load balancer
-    UdpEchoClientHelper echoClient_aggr (lb->getAddress(), lb->getPort());   
+    UdpEchoClientHelper echoClient_aggr (lb->getAddressForClient(), lb->getClientPort());   
     echoClient_aggr.SetAttribute ("MaxPackets", UintegerValue (1));
     echoClient_aggr.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
     echoClient_aggr.SetAttribute ("PacketSize", UintegerValue (1024));
     
     Ptr<Node> star_client_node = star.GetSpokeNode(1); //take the first node of the star
     Ipv4Address star_client_node_addr = star_client_node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    cout<<"node in the star ( "<<star_client_node_addr <<" ) contacting load balancer at addr: "<<lb->getAddress()<<endl;
+    cout<<"node in the star ( "<<star_client_node_addr <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
 
     ApplicationContainer clientApps_aggr = echoClient_aggr.Install (star_client_node); //install on the node the udp client
     clientApps_aggr.Start (Seconds (1.0));
