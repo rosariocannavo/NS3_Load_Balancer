@@ -23,7 +23,7 @@ class ReplicaServer : public Object {
         /*allocate the replica server*/
         this->socket = Socket::CreateSocket(this->replicaNode, UdpSocketFactory::GetTypeId());
         this->socket->Bind(InetSocketAddress(replicaAddr, exposingReplicaPort));
-        this->socket->SetRecvCallback(MakeCallback(&ReplicaServer::ReplicaReceivePacket, this));
+        //this->socket->SetRecvCallback(MakeCallback(&ReplicaServer::ReplicaReceivePacket, this));
     }
 
 
@@ -31,6 +31,11 @@ class ReplicaServer : public Object {
 
 
     ~ReplicaServer() {}
+
+
+    void start() {
+        this->socket->SetRecvCallback(MakeCallback(&ReplicaServer::ReplicaReceivePacket, this));
+    }
 
 
     void ReplicaReceivePacket(Ptr<Socket> socket) {
@@ -52,10 +57,10 @@ class ReplicaServer : public Object {
             packet->CopyData(buffer, packet->GetSize ());
             std::string payload = std::string((char*)buffer);
 
-            std::cout<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender "<<endl;
-
             CustomTag retriviedTag;
             packet->PeekPacketTag(retriviedTag);
+
+            std::cout<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender and tag: \""<<retriviedTag.GetData()<<"\""<<endl;
 
             /* replying to the load balancer using the other port -> done instantiating a custom client*/
             cout<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<retriviedTag.GetData()<<endl;

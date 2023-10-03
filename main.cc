@@ -11,6 +11,14 @@
 #include "LoadBalancer.h"
 #include "ReplicaServer.h"
 
+#include <thread>
+#include <cstdlib>
+#include <ctime>
+#include <thread>
+#include <chrono>
+#include <functional>
+
+
 /*
   star -> p2p -> lan 
   star -> lb -> replica
@@ -24,7 +32,7 @@ int main (int argc, char *argv[]) {
     Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("100kb/s"));
     Config::SetDefault ("ns3::OnOffApplication::MaxBytes", UintegerValue (50000));
    
-    uint32_t nSpokes = 10;
+    uint32_t nSpokes = 100;
     uint32_t seed = 123;
     CommandLine cmd;
     cmd.AddValue ("nSpokes", "Number of external nodes to place in the star", nSpokes);
@@ -135,6 +143,7 @@ int main (int argc, char *argv[]) {
 
     //Allocate a ReplicaServer server on replica 1
     Ptr<ReplicaServer> replicaServer1 = CreateObject<ReplicaServer>(replicaNodes.Get(1), 9);
+    replicaServer1->start();
 
 
     // //PRINT ADDRESS BETWEEN STAR P2P AND REPLICA
@@ -185,7 +194,7 @@ int main (int argc, char *argv[]) {
     //this is were the load balancer get exposed
     Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(replicaNodes);
     obj->AggregateObject(lb);
-
+    */
 
 
 
@@ -195,8 +204,10 @@ int main (int argc, char *argv[]) {
     
 
     //create a load balancer that expose itself
+    
     Ptr<Node> lb_node = p2pNodes.Get(0);
     Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(lb_node, 9,10, replicaNodes);
+    lb->start();
 
     //allocate a client in a random server in the star to contact the load balancer
     UdpEchoClientHelper echoClient_aggr (lb->getAddressForClient(), lb->getClientPort());   
@@ -204,13 +215,29 @@ int main (int argc, char *argv[]) {
     echoClient_aggr.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
     echoClient_aggr.SetAttribute ("PacketSize", UintegerValue (1024));
     
-    Ptr<Node> star_client_node = star.GetSpokeNode(1); //take the first node of the star
-    Ipv4Address star_client_node_addr = star_client_node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    cout<<"node in the star ( "<<star_client_node_addr <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
 
-    ApplicationContainer clientApps_aggr = echoClient_aggr.Install (star_client_node); //install on the node the udp client
-    clientApps_aggr.Start (Seconds (1.0));
-    clientApps_aggr.Stop (Seconds (20.0));
+    for(uint i=0; i<1;i++) {
+        cout<<"SIMULATION N. "<<i<<endl;
+        std::srand(static_cast<unsigned int>(std::time(nullptr)));
+        int random_node = (std::rand() % 99) + 1;
+        cout<<"random number: "<<random_node<<endl;
+        Ptr<Node> star_client_node = star.GetSpokeNode(random_node); //take a random node in the star
+        Ipv4Address star_client_node_addr = star_client_node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+        cout<<"node in the star ( "<<star_client_node_addr <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
+
+        ApplicationContainer clientApps_aggr = echoClient_aggr.Install (star_client_node); //install on the node the udp client
+
+        clientApps_aggr.Start (Seconds (1.0));
+        clientApps_aggr.Stop (Seconds (20.0));
+
+
+
+        std::chrono::seconds sleepDuration(3);
+        std::this_thread::sleep_for(sleepDuration);
+
+        //create a server on the client -> maybe create a dedicated class customStarClient
+    }
+    
     
 
     
