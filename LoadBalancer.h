@@ -85,12 +85,17 @@ class LoadBalancer : public Object {
                 CustomTag tag;
                 packet->PeekPacketTag(tag);
 
+                //from string to address
                 ns3::Ipv4Address clientAddress(payload.c_str());
-                
+
+                //convert ipv4addr to string
+                std::ostringstream oss;
+                oss << fromIpv4;
+
 
                 cout<<"LBfromReplicaSender: sending obtained response for tag: "<<tag.GetData()<<" to the client "<<payload.c_str()<<" who sent the request"<<endl;
                 Ptr<CustomClient> responseClient = CreateObject<CustomClient>(availableServers.Get(0));
-                responseClient->sendTo(clientAddress, this->receivingClientPort, "final response by LB");
+                responseClient->sendTo(clientAddress, this->receivingClientPort, oss.str());
 
             }
         }
@@ -120,7 +125,7 @@ class LoadBalancer : public Object {
                 if (selectedNode != nullptr) {
 
                     Ipv4Address RRaddr = selectedNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-                    std::cout << "\033[0;31m LB: selected RR Node address: " << RRaddr<<"\033[0m"<<endl;  
+                    std::cout << "\033[0;31mLB: selected RR Node address: " << RRaddr<<"\033[0m"<<endl;  
 
                     CustomTag tag;
                     tag.SetData(packet->GetUid());
