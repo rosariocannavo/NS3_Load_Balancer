@@ -8,22 +8,29 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/udp-echo-server.h"
 
+#include "CustomServer.h"
 
 using namespace ns3;
 using namespace std;
 
+//TODO!: clean this class
 class ReplicaServer : public Object {
   public:
 
-    ReplicaServer(Ptr<Node> replicaNode, uint exposingReplicaPort) {
+    ReplicaServer(Ptr<Node> replicaNode, uint exposingReplicaPort, uint loadBalancerPort) {
         this->replicaNode = replicaNode;
-        this->exposingReplicaPort = exposingReplicaPort;
+        this->exposingReplicaPort = exposingReplicaPort;   //port used to listen
         this->replicaAddr =  this->replicaNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
 
+        this->loadBalancerPort = loadBalancerPort;  //port to contact the load balancer
+
+
+        //EXPERIMENT
         /*allocate the replica server*/
-        this->socket = Socket::CreateSocket(this->replicaNode, UdpSocketFactory::GetTypeId());
-        this->socket->Bind(InetSocketAddress(replicaAddr, exposingReplicaPort));
-        //this->socket->SetRecvCallback(MakeCallback(&ReplicaServer::ReplicaReceivePacket, this));
+        //this->socket = Socket::CreateSocket(this->replicaNode, UdpSocketFactory::GetTypeId());
+        //this->socket->Bind(InetSocketAddress(replicaAddr, exposingReplicaPort));
+        this->server = CreateObject<CustomServer>(this->replicaNode, this->replicaAddr, this->exposingReplicaPort);
+
     }
 
 
@@ -34,7 +41,8 @@ class ReplicaServer : public Object {
 
 
     void start() {
-        this->socket->SetRecvCallback(MakeCallback(&ReplicaServer::ReplicaReceivePacket, this));
+        //this->socket->SetRecvCallback(MakeCallback(&ReplicaServer::ReplicaReceivePacket, this));
+        this->server->startServer(&ReplicaServer::ReplicaReceivePacket, this);
     }
 
 
@@ -65,7 +73,7 @@ class ReplicaServer : public Object {
             /* replying to the load balancer using the other port -> done instantiating a custom client*/
             cout<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<retriviedTag.GetData()<<endl;
             Ptr<CustomClient> replicaClient = CreateObject<CustomClient>(this->replicaNode);
-            replicaClient->sendTo(fromIpv4, 10, payload, retriviedTag);
+            replicaClient->sendTo(fromIpv4, this->loadBalancerPort, payload, retriviedTag);
 
         }
     }
@@ -92,7 +100,10 @@ class ReplicaServer : public Object {
     private:
         Ptr<Node> replicaNode;
         Ipv4Address replicaAddr; 
-        Ptr<Socket> socket; 
+        //Ptr<Socket> socket; 
         uint exposingReplicaPort;
+        uint loadBalancerPort;
+
+        Ptr<CustomServer> server; 
 
 };

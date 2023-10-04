@@ -20,23 +20,24 @@ using namespace std;
 class LoadBalancer : public Object {
     public:
         /*at allocation time load balancer expose a udp server and knows all the replica servers available*/
-        LoadBalancer(Ptr<Node> lbNode, uint exposingClientPort, uint exposingReplicaPort, NodeContainer availableServers) {
+        LoadBalancer(Ptr<Node> lbNode, uint exposingClientPort, uint exposingReplicaPort, uint receivingReplicaPort, uint receivingClientPort,  NodeContainer availableServers) {
             this->lbNode = lbNode;
-            this->exposingReplicaPort = exposingReplicaPort;
-            this->exposingClientPort = exposingClientPort;
+            this->exposingReplicaPort = exposingReplicaPort;    //port to listen for the replica
+            this->exposingClientPort = exposingClientPort;      //port to listen for the client
+            this->receivingClientPort = receivingClientPort;    //port to contact the client after the replica responded
+            this->receivingReplicaPort = receivingReplicaPort;  //port to contact the replica
             this->availableServers = availableServers;
 
             this->lbAddrToStarInterface = this->lbNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
             this->lbAddrToReplicaInterface = this->lbNode->GetObject<Ipv4>()->GetAddress(2,0).GetLocal();
-            /*allocate client side socket*/
+
+            /*allocate client side socket*/ //TODO!: implement with customServer
             this->clientSocket = Socket::CreateSocket(this->lbNode, UdpSocketFactory::GetTypeId());
             this->clientSocket->Bind(InetSocketAddress(lbAddrToStarInterface, exposingClientPort));
-            //this->clientSocket->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacketFromClient));
 
-            /*allocate replica side socket*/
+            /*allocate replica side socket*/ //TODO!: implement with customServer
             this->replicaSocket = Socket::CreateSocket(this->lbNode, UdpSocketFactory::GetTypeId());
             this->replicaSocket->Bind(InetSocketAddress(lbAddrToReplicaInterface, exposingReplicaPort));
-            //this->replicaSocket->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacketFromReplica, this));
         }
 
 
@@ -47,7 +48,7 @@ class LoadBalancer : public Object {
 
 
         void start() {
-            this->clientSocket->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacketFromClient));
+            this->clientSocket->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacketFromClient, this));
             this->replicaSocket->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacketFromReplica, this));
 
         }
@@ -82,15 +83,14 @@ class LoadBalancer : public Object {
 
                 cout<<"LBfromReplicaSender: sending obtained response for tag: "<<tag.GetData()<<" to the client "<<payload.c_str()<<" who sent the request"<<endl;
                 Ptr<CustomClient> responseClient = CreateObject<CustomClient>(availableServers.Get(0));
-                responseClient->sendTo(clientAddress, 9, "response" , tag);
+                responseClient->sendTo(clientAddress, this->receivingClientPort, "final response by LB");
 
             }
         }
 
 
         //this function wait a communication from the clients and redirect it to the replica servers
-        //has to be static for the round robin fact
-        static void ReceivePacketFromClient(Ptr<Socket> socket) {
+        void ReceivePacketFromClient(Ptr<Socket> socket) {
             Ptr<Packet> packet;
             Address from;
 
@@ -124,7 +124,7 @@ class LoadBalancer : public Object {
                     oss << fromIpv4;
                     cout<<"LB: sending message to the selected replica server: "<<RRaddr<<endl;
                     Ptr<CustomClient> lbClient = CreateObject<CustomClient>(availableServers.Get(0));
-                    lbClient->sendTo(RRaddr, 9, oss.str() , tag);
+                    lbClient->sendTo(RRaddr, this->receivingReplicaPort, oss.str() , tag);
                 
                 } else {
                     std::cout << "No available servers." << std::endl;
@@ -168,13 +168,15 @@ class LoadBalancer : public Object {
 
         uint exposingReplicaPort;
         uint exposingClientPort;
+        uint receivingClientPort;
+        uint receivingReplicaPort;
         Ptr<Socket> clientSocket; 
         Ptr<Socket> replicaSocket;
-        static uint32_t currentRRIndex;
-        static NodeContainer availableServers;
+        uint32_t currentRRIndex;
+        NodeContainer availableServers;
 
 
-        static Ptr<Node> RoundRobinSelection() {
+        Ptr<Node> RoundRobinSelection() {
             if (availableServers.GetN() == 0) { return nullptr; }
 
             currentRRIndex = (currentRRIndex + 1) % availableServers.GetN();
@@ -189,7 +191,5 @@ class LoadBalancer : public Object {
 
 };
 
-uint32_t LoadBalancer::currentRRIndex = 0;
-NodeContainer LoadBalancer::availableServers;
 
 
