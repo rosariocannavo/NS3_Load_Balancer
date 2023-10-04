@@ -1,3 +1,6 @@
+#ifndef REPLICA_SERVER_H
+#define REPLICA_SERVER_H
+
 #include "ns3/applications-module.h"
 #include "ns3/core-module.h"
 #include "ns3/internet-module.h"
@@ -9,12 +12,16 @@
 #include "ns3/udp-echo-server.h"
 
 #include "CustomServer.h"
+#include "CustomClient.h"
 
 using namespace ns3;
 using namespace std;
 
-//TODO!: clean this class
+/**
+ * Allocate a server in a replica node to satisfy the requests of the lb using a client. Server and Client are managed using CustomServer and CustomClient
+*/
 class ReplicaServer : public Object {
+
   public:
 
     ReplicaServer(Ptr<Node> replicaNode, uint exposingReplicaPort, uint loadBalancerPort) {
@@ -97,7 +104,10 @@ class ReplicaServer : public Object {
         return tid;
     }
 
+
+
     private:
+    
         Ptr<Node> replicaNode;
         Ipv4Address replicaAddr; 
         //Ptr<Socket> socket; 
@@ -107,3 +117,5 @@ class ReplicaServer : public Object {
         Ptr<CustomServer> server; 
 
 };
+
+#endif

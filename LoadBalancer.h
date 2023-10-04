@@ -1,3 +1,6 @@
+#ifndef LOAD_BALANCER_H
+#define LOAD_BALANCER_H
+
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/netanim-module.h"
@@ -13,13 +16,20 @@
 
 #include "CustomTag.h"
 #include "CustomClient.h"
+#include "CustomServer.h"
 
 using namespace ns3;
 using namespace std;
 
+/**
+ * This class is the heart of the project, allocate a load balancer that listen to the client -> make requests to the replica -> listen the response of the replica -> send the response to the client
+ * This class use CustomClient and CustomServer to communicate
+ * Only the load balancer knows the addresses of the replica nodes
+*/
 class LoadBalancer : public Object {
+
     public:
-        /*at allocation time load balancer expose a udp server and knows all the replica servers available*/
+
         LoadBalancer(Ptr<Node> lbNode, uint exposingClientPort, uint exposingReplicaPort, uint receivingReplicaPort, uint receivingClientPort,  NodeContainer availableServers) {
             this->lbNode = lbNode;
             this->exposingReplicaPort = exposingReplicaPort;    //port to listen for the replica
@@ -31,13 +41,11 @@ class LoadBalancer : public Object {
             this->lbAddrToStarInterface = this->lbNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
             this->lbAddrToReplicaInterface = this->lbNode->GetObject<Ipv4>()->GetAddress(2,0).GetLocal();
 
-            /*allocate client side socket*/ //TODO!: implement with customServer
-            this->clientSocket = Socket::CreateSocket(this->lbNode, UdpSocketFactory::GetTypeId());
-            this->clientSocket->Bind(InetSocketAddress(lbAddrToStarInterface, exposingClientPort));
+            /*allocate client side socket (take messages from the star)*/
+            this->starServant = CreateObject<CustomServer>(this->lbNode, this->lbAddrToStarInterface, this->exposingClientPort);
 
-            /*allocate replica side socket*/ //TODO!: implement with customServer
-            this->replicaSocket = Socket::CreateSocket(this->lbNode, UdpSocketFactory::GetTypeId());
-            this->replicaSocket->Bind(InetSocketAddress(lbAddrToReplicaInterface, exposingReplicaPort));
+            /*allocate replica side socket (take messages from the replicas)*/ 
+            this->replicaServant = CreateObject<CustomServer>(this->lbNode, this->lbAddrToReplicaInterface, this->exposingReplicaPort);
         }
 
 
@@ -48,9 +56,8 @@ class LoadBalancer : public Object {
 
 
         void start() {
-            this->clientSocket->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacketFromClient, this));
-            this->replicaSocket->SetRecvCallback(MakeCallback(&LoadBalancer::ReceivePacketFromReplica, this));
-
+            this->starServant->startServer(&LoadBalancer::ReceivePacketFromClient, this);
+            this->replicaServant->startServer(&LoadBalancer::ReceivePacketFromReplica, this);
         }
 
 
@@ -113,7 +120,7 @@ class LoadBalancer : public Object {
                 if (selectedNode != nullptr) {
 
                     Ipv4Address RRaddr = selectedNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-                    std::cout << "LB: selected RR Node address: " << RRaddr<<endl;  
+                    std::cout << "\033[0;31m LB: selected RR Node address: " << RRaddr<<"\033[0m"<<endl;  
 
                     CustomTag tag;
                     tag.SetData(packet->GetUid());
@@ -122,6 +129,7 @@ class LoadBalancer : public Object {
                     //convert ipv4addr to string
                     std::ostringstream oss;
                     oss << fromIpv4;
+
                     cout<<"LB: sending message to the selected replica server: "<<RRaddr<<endl;
                     Ptr<CustomClient> lbClient = CreateObject<CustomClient>(availableServers.Get(0));
                     lbClient->sendTo(RRaddr, this->receivingReplicaPort, oss.str() , tag);
@@ -162,6 +170,7 @@ class LoadBalancer : public Object {
 
 
     private:
+
         Ptr<Node> lbNode;
         Ipv4Address lbAddrToStarInterface;
         Ipv4Address lbAddrToReplicaInterface;
@@ -170,12 +179,12 @@ class LoadBalancer : public Object {
         uint exposingClientPort;
         uint receivingClientPort;
         uint receivingReplicaPort;
-        Ptr<Socket> clientSocket; 
-        Ptr<Socket> replicaSocket;
+        Ptr<CustomServer> starServant;
+        Ptr<CustomServer> replicaServant;
         uint32_t currentRRIndex;
         NodeContainer availableServers;
 
-
+        //this algorithm select one of the avaialable replica servers
         Ptr<Node> RoundRobinSelection() {
             if (availableServers.GetN() == 0) { return nullptr; }
 
@@ -188,8 +197,7 @@ class LoadBalancer : public Object {
             return selectedNode;
         }
 
-
 };
 
-
+#endif
 

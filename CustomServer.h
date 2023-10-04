@@ -1,3 +1,6 @@
+#ifndef CUSTOM_SERVER_H
+#define CUSTOM_SERVER_H
+
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/netanim-module.h"
@@ -8,7 +11,14 @@
 #include "ns3/udp-echo-server.h"
 #include "ns3/mobility-module.h"
 
+using namespace ns3;
+using namespace std;
+
+/**
+ * Allocate a server on a node at a specific port and stays listening
+*/
 class CustomServer : public Object {
+
     public: 
 
         CustomServer(Ptr<Node> node, Ipv4Address address, uint port) {
@@ -54,8 +64,12 @@ class CustomServer : public Object {
 
 
     private:
+
         Ptr<Node> node;
         Ptr<Socket> socket;
         Ipv4Address address;
         uint port;
+        
 };
+
+#endif

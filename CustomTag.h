@@ -1,12 +1,18 @@
+#ifndef CUSTOM_TAG_H
+#define CUSTOM_TAG_H
+
 #include "ns3/tag.h"
-#include <cryptopp/sha.h>
-#include <cryptopp/hex.h>
 
+using namespace std;
 using namespace ns3;
-using namespace CryptoPP;
 
+/**
+ * Create a custom tag that could be attached to a packet
+*/
 class CustomTag : public Tag {
+
   public:
+
     CustomTag() : m_simpleValue(0) {}  
 
     static TypeId GetTypeId(void) {
@@ -47,7 +53,6 @@ class CustomTag : public Tag {
     }
 
 
-    // Accessors
     void SetData(uint value) {
         m_simpleValue = value;
     }
@@ -58,6 +63,11 @@ class CustomTag : public Tag {
     }
     
 
+
   private:
+
     uint m_simpleValue;
+
 };
+
+#endif

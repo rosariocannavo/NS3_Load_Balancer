@@ -1,3 +1,7 @@
+#ifndef CUSTOM_CLIENT_H
+#define CUSTOM_CLIENT_H
+
+
 #include "ns3/applications-module.h"
 #include "ns3/core-module.h"
 #include "ns3/internet-module.h"
@@ -13,7 +17,11 @@
 using namespace ns3;
 using namespace std;
 
+/**
+ * Allocate a custom client on a node to send messages
+*/
 class CustomClient : public Object {
+
     public:
 
         CustomClient(Ptr<Node> node) {
@@ -63,7 +71,10 @@ class CustomClient : public Object {
 
 
     private:
+    
         Ptr<Node> node;
         Ptr<Socket> socket; 
 
 };
+
+#endif 

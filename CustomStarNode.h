@@ -1,3 +1,6 @@
+#ifndef CUSTOM_STARNODE_H
+#define CUSTOM_STARNODE_H
+
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/netanim-module.h"
@@ -9,8 +12,17 @@
 #include "ns3/mobility-module.h"
 #include "ns3/udp-socket.h"
 
-/* this class does not use customclient because is used for simulation*/
+#include "CustomServer.h"
+
+using namespace ns3;
+using namespace std;
+
+/**
+ * Allocate a server in a client node to receive requests to the load balancer
+ * this class does not use customclient because is used for simulation
+*/
 class CustomStarNode : public Object {
+
     public:
         
         CustomStarNode(Ptr<Node> starNode, uint exposingRcvPort, Ptr<LoadBalancer> lb) {
@@ -20,10 +32,8 @@ class CustomStarNode : public Object {
             this->exposingRcvPort = exposingRcvPort;
             this->starNodeAddr = starNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
 
-            //TODO!: implement with customServer
-            /* Install a simple server to receive data*/
-            this->rcvSocket = Socket::CreateSocket(this->starNode, UdpSocketFactory::GetTypeId());
-            this->rcvSocket->Bind(InetSocketAddress(this->starNodeAddr, this->exposingRcvPort));
+            //install a server in the node
+            this->rcvServer = CreateObject<CustomServer>(this->starNode, this->starNodeAddr, this->exposingRcvPort);
 
         }   
 
@@ -35,7 +45,7 @@ class CustomStarNode : public Object {
 
 
         void start() {
-            this->rcvSocket->SetRecvCallback(MakeCallback(&CustomStarNode::ReceivePacketAsFinalResponse, this));
+            this->rcvServer->startServer(&CustomStarNode::ReceivePacketAsFinalResponse, this);
 
             /* install a client with clientHelper*/
             UdpEchoClientHelper echoClientHelper(lb->getAddressForClient(), lb->getClientPort());
@@ -63,7 +73,7 @@ class CustomStarNode : public Object {
                 packet->CopyData(buffer, packet->GetSize ());
                 std::string payload = std::string((char*)buffer);
 
-                cout<<"CLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\""<<endl;
+                cout<<"CLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\""<<endl<<endl;
                
             }
         }
@@ -98,7 +108,8 @@ class CustomStarNode : public Object {
 
 
     private:
-        Ptr<Socket> rcvSocket;
+
+        Ptr<CustomServer> rcvServer;
         Ptr<Node> starNode;
         Ptr<LoadBalancer> lb;
         uint exposingRcvPort;
@@ -106,3 +117,5 @@ class CustomStarNode : public Object {
         ApplicationContainer applicationContainer; 
     
 };
+
+#endif
