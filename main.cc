@@ -9,6 +9,9 @@
 #include "ns3/mobility-module.h"
 #include "ns3/csma-module.h"
 
+#include <thread>
+
+
 #include "LoadBalancer.h"
 #include "ReplicaServer.h"
 #include "CustomStarNode.h"
@@ -145,19 +148,31 @@ int main (int argc, char *argv[]) {
 
     //allocate Servers on each node of the replica network
     Ptr<ReplicaServer> replicaServers[replicaNodes.GetN()-1];
+
+
     for(uint i=1; i<replicaNodes.GetN();i++) {
         replicaServers[i-1] = CreateObject<ReplicaServer>(replicaNodes.Get(i), LISTENINGREPLICAPORT, LISTENINGLBPORTFORREPLICA); 
+
+         std::thread thread([&replicaServers, i ]() {
+            replicaServers[i-1]->start();
+        });
+        thread.detach();
     }
 
     for(uint i=1; i<replicaNodes.GetN();i++) {
-        replicaServers[i-1]->start(); 
+        //replicaServers[i-1]->start(); 
     }
+
+    
 
 
     //create a load balancer that expose itself
     Ptr<Node> lb_node = p2pNodes.Get(0);
     Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(lb_node, LISTENINGLBPORTFORCLIENT, LISTENINGLBPORTFORREPLICA, LISTENINGREPLICAPORT , LISTENINGCLIENTPORT, replicaNodes); 
-    lb->start();
+    //lb->start();
+
+    std::thread lbThread([lb]() {lb->start();} );
+    lbThread.detach();
 
 
     //allocate on each star node a client to receive responses
@@ -169,19 +184,22 @@ int main (int argc, char *argv[]) {
     
     
     //star the simulation
-    for(uint i=0;i<3; i++) {
+    for(uint i=0;i<10; i++) {
         std::srand(static_cast<unsigned int>(std::time(nullptr)));
         int random_node = (std::rand() % nSpokes-1) + 1;
 
         Ptr<CustomStarNode> selectedClient = starNodes[random_node];
 
-        cout<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
+        cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
 
-        selectedClient->start();
+        //selectedClient->start();
 
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::thread thread([&selectedClient]() {
+            selectedClient->start();
+        });
+        thread.join();
 
-
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
    
 

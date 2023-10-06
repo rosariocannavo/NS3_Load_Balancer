@@ -13,7 +13,6 @@
 #include <ns3/ipv4-address.h>
 #include <ns3/tag.h>
 
-
 #include "CustomTag.h"
 #include "CustomClient.h"
 #include "CustomServer.h"
@@ -25,6 +24,9 @@ using namespace std;
  * This class is the heart of the project, allocate a load balancer that listen to the client -> make requests to the replica -> listen the response of the replica -> send the response to the client
  * This class use CustomClient and CustomServer to communicate
  * Only the load balancer knows the addresses of the replica nodes
+ * 
+ * Note: by ns3 architectures, one node that run multiple job, run them as parallel job by default without the needing for multithreading
+ * 
 */
 class LoadBalancer : public Object {
 
@@ -78,7 +80,7 @@ class LoadBalancer : public Object {
                 packet->CopyData(buffer, packet->GetSize ());
                 std::string payload = std::string((char*)buffer);
 
-                cout <<"LBfromReplica: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << " which is a replicaserver, to send to"<<payload<<endl;
+                cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LBfromReplica: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << " which is a replicaserver, to send to"<<payload<<endl;
                 
 
                 //trasmit the processed request to requirent client
@@ -93,7 +95,7 @@ class LoadBalancer : public Object {
                 oss << fromIpv4;
 
 
-                cout<<"LBfromReplicaSender: sending obtained response for tag: "<<tag.GetData()<<" to the client "<<payload.c_str()<<" who sent the request"<<endl;
+                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LBfromReplicaSender: sending obtained response for tag: "<<tag.GetData()<<" to the client "<<payload.c_str()<<" who sent the request"<<endl;
                 Ptr<CustomClient> responseClient = CreateObject<CustomClient>(availableServers.Get(0));
                 responseClient->sendTo(clientAddress, this->receivingClientPort, oss.str());
 
@@ -109,8 +111,8 @@ class LoadBalancer : public Object {
             while ((packet = socket->RecvFrom(from))) {
                 InetSocketAddress fromAddr = InetSocketAddress::ConvertFrom(from);
                 Ipv4Address fromIpv4 = fromAddr.GetIpv4();
-                    
-                uint32_t dataSize = packet->GetSize();
+
+                uint32_t dataSize = packet->GetSize();     
 
                 Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
 
@@ -118,29 +120,29 @@ class LoadBalancer : public Object {
                 //this is the point where we could implement a cache and a sticky behaviour
 
 
-                std::cout <<"LB: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;
+                std::cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;
 
                 Ptr<Node> selectedNode = RoundRobinSelection();
 
                 if (selectedNode != nullptr) {
 
                     Ipv4Address RRaddr = selectedNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-                    std::cout << "\033[0;31mLB: selected RR Node address: " << RRaddr<<"\033[0m"<<endl;  
+                    std::cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<< "\033[0;31mLB: selected RR Node address: " << RRaddr<<"\033[0m"<<endl;  
 
                     CustomTag tag;
                     tag.SetData(packet->GetUid());
-                    cout<<"LB: adding tag "<<packet->GetUid()<<" to packet"<<endl; 
+                    cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: adding tag "<<packet->GetUid()<<" to packet"<<endl; 
 
                     //convert ipv4addr to string
                     std::ostringstream oss;
                     oss << fromIpv4;
 
-                    cout<<"LB: sending message to the selected replica server: "<<RRaddr<<endl;
+                    cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: sending message to the selected replica server: "<<RRaddr<<endl;
                     Ptr<CustomClient> lbClient = CreateObject<CustomClient>(availableServers.Get(0));
                     lbClient->sendTo(RRaddr, this->receivingReplicaPort, oss.str() , tag);
                 
                 } else {
-                    std::cout << "No available servers." << std::endl;
+                    std::cout << "\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"No available servers." << std::endl;
                 }
             }    
         }

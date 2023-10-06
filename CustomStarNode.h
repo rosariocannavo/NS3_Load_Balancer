@@ -13,6 +13,8 @@
 #include "ns3/udp-socket.h"
 
 #include "CustomServer.h"
+#include "TimeStampTag.h"
+#include "CustomClient.h"
 
 using namespace ns3;
 using namespace std;
@@ -46,15 +48,29 @@ class CustomStarNode : public Object {
 
         void start() {
             this->rcvServer->startServer(&CustomStarNode::ReceivePacketAsFinalResponse, this);
+            /*add the current timestamp*/
+            TimestampTag timestampTag;  
+            timestampTag.SetTimestamp(Simulator::Now());
 
-            /* install a client with clientHelper*/
+            
+            // install a client with clientHelper
             UdpEchoClientHelper echoClientHelper(lb->getAddressForClient(), lb->getClientPort());
+  
             echoClientHelper.SetAttribute ("MaxPackets", UintegerValue (1));
             echoClientHelper.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-            echoClientHelper.SetAttribute ("PacketSize", UintegerValue (1024)); 
+            echoClientHelper.SetAttribute ("PacketSize", UintegerValue (1024));    
             this->applicationContainer = echoClientHelper.Install(this->starNode);
             this->applicationContainer.Start (Seconds (1.0));
             this->applicationContainer.Stop (Seconds (10.0));
+            
+            //gives segfault in CustomClient socket->Send
+            //Ptr<CustomClient> client= CreateObject<CustomClient>(this->starNode);
+            //client->sendTo(lb->getAddressForClient(),lb->getClientPort(),"ciao ciao", timestampTag);
+
+        
+
+            
+
         }
 
         
@@ -73,7 +89,7 @@ class CustomStarNode : public Object {
                 packet->CopyData(buffer, packet->GetSize ());
                 std::string payload = std::string((char*)buffer);
 
-                cout<<"\033[0;32mCLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\" which is the replica server that managed my requests \033[0m"<<endl<<endl;
+                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;32mCLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\" which is the replica server that managed my requests \033[0m"<<endl<<endl;
                
             }
         }
@@ -115,6 +131,7 @@ class CustomStarNode : public Object {
         uint exposingRcvPort;
         Ipv4Address starNodeAddr;
         ApplicationContainer applicationContainer; 
+        
     
 };
 

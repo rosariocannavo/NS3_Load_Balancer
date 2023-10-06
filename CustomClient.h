@@ -13,6 +13,7 @@
 #include "ns3/udp-echo-server.h"
 #include "ns3/udp-socket.h"
 
+#include "TimeStampTag.h"
 
 using namespace ns3;
 using namespace std;
@@ -38,7 +39,7 @@ class CustomClient : public Object {
 
     
         void sendTo(Ipv4Address receiver, uint bindingPort, string message,  CustomTag tag) {
-            cout<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" with tag: \""<<tag.GetData()<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
+            cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" with tag: \""<<tag.GetData()<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
 
             this->socket->Connect(InetSocketAddress(receiver, bindingPort));
 
@@ -49,9 +50,21 @@ class CustomClient : public Object {
             this->socket->Send(packet);
         }
 
+        void sendTo(Ipv4Address receiver, uint bindingPort, string message, TimestampTag tstag) {
+            cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" with timestamp: \""<<tstag.GetTimestamp()<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
 
+            this->socket->Connect(InetSocketAddress(receiver, bindingPort));
+            Ptr<Packet> packet = Create<Packet>((const uint8_t*)message.c_str(), message.size());
+
+            packet->AddPacketTag(tstag);
+
+            //seg fault here on client
+            this->socket->Send(packet);
+        }
+
+    
         void sendTo(Ipv4Address receiver, uint bindingPort, string message) {
-            cout<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
+            cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
 
             this->socket->Connect(InetSocketAddress(receiver, bindingPort));
 

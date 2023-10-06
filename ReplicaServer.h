@@ -31,11 +31,6 @@ class ReplicaServer : public Object {
 
         this->loadBalancerPort = loadBalancerPort;  //port to contact the load balancer
 
-
-        //EXPERIMENT
-        /*allocate the replica server*/
-        //this->socket = Socket::CreateSocket(this->replicaNode, UdpSocketFactory::GetTypeId());
-        //this->socket->Bind(InetSocketAddress(replicaAddr, exposingReplicaPort));
         this->server = CreateObject<CustomServer>(this->replicaNode, this->replicaAddr, this->exposingReplicaPort);
 
     }
@@ -48,7 +43,6 @@ class ReplicaServer : public Object {
 
 
     void start() {
-        //this->socket->SetRecvCallback(MakeCallback(&ReplicaServer::ReplicaReceivePacket, this));
         this->server->startServer(&ReplicaServer::ReplicaReceivePacket, this);
     }
 
@@ -75,10 +69,10 @@ class ReplicaServer : public Object {
             CustomTag retriviedTag;
             packet->PeekPacketTag(retriviedTag);
 
-            std::cout<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender and tag: \""<<retriviedTag.GetData()<<"\""<<endl;
+            std::cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender and tag: \""<<retriviedTag.GetData()<<"\""<<endl;
 
             /* replying to the load balancer using the other port -> done instantiating a custom client*/
-            cout<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<retriviedTag.GetData()<<endl;
+            cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<retriviedTag.GetData()<<endl;
             Ptr<CustomClient> replicaClient = CreateObject<CustomClient>(this->replicaNode);
             replicaClient->sendTo(fromIpv4, this->loadBalancerPort, payload, retriviedTag);
 
