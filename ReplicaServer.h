@@ -14,11 +14,18 @@
 #include "CustomServer.h"
 #include "CustomClient.h"
 
+#include <random>
+#include <chrono>
+
+
 using namespace ns3;
 using namespace std;
 
 /**
  * Allocate a server in a replica node to satisfy the requests of the lb using a client. Server and Client are managed using CustomServer and CustomClient
+ * 
+ * Conf param here
+ * 
 */
 class ReplicaServer : public Object {
 
@@ -70,6 +77,21 @@ class ReplicaServer : public Object {
             packet->PeekPacketTag(retriviedTag);
 
             std::cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender and tag: \""<<retriviedTag.GetData()<<"\""<<endl;
+
+            //simulate the processing request time (0.1-1.5) seconds
+            auto randomSleep = []() {
+                std::random_device rd;
+                std::mt19937 gen(rd());
+                std::uniform_real_distribution<> dis(0.1, 1.5); // Define the range
+
+                double sleepTime = dis(gen);
+                std::chrono::milliseconds sleepDuration(static_cast<int>(sleepTime * 1000));
+                cout<<"\033[0;34mReplica: response solving time: "<<std::to_string(sleepDuration.count())<<"\033[0m "<<endl;
+
+                std::this_thread::sleep_for(sleepDuration);
+            };
+
+            randomSleep();
 
             /* replying to the load balancer using the other port -> done instantiating a custom client*/
             cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<retriviedTag.GetData()<<endl;

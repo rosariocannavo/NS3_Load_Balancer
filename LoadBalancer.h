@@ -16,11 +16,15 @@
 #include "CustomTag.h"
 #include "CustomClient.h"
 #include "CustomServer.h"
+#include "LRUCache.h"
 
 using namespace ns3;
 using namespace std;
 
 /**
+ * 
+ * Conf Param here
+ * 
  * This class is the heart of the project, allocate a load balancer that listen to the client -> make requests to the replica -> listen the response of the replica -> send the response to the client
  * This class use CustomClient and CustomServer to communicate
  * Only the load balancer knows the addresses of the replica nodes
@@ -48,6 +52,9 @@ class LoadBalancer : public Object {
 
             /*allocate replica side socket (take messages from the replicas)*/ 
             this->replicaServant = CreateObject<CustomServer>(this->lbNode, this->lbAddrToReplicaInterface, this->exposingReplicaPort);
+
+            /*Allocate a cache with n entries*/
+            this->stickyCache = new LRUCache<Ipv4Address, Ipv4Address>(5);
         }
 
 
@@ -97,7 +104,7 @@ class LoadBalancer : public Object {
 
                 cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LBfromReplicaSender: sending obtained response for tag: "<<tag.GetData()<<" to the client "<<payload.c_str()<<" who sent the request"<<endl;
                 Ptr<CustomClient> responseClient = CreateObject<CustomClient>(availableServers.Get(0));
-                responseClient->sendTo(clientAddress, this->receivingClientPort, oss.str());
+                responseClient->sendTo(clientAddress, this->receivingClientPort, oss.str(), tag);
 
             }
         }
@@ -117,33 +124,49 @@ class LoadBalancer : public Object {
                 Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
 
 
-                //this is the point where we could implement a cache and a sticky behaviour
-
-
                 std::cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;
 
-                Ptr<Node> selectedNode = RoundRobinSelection();
 
-                if (selectedNode != nullptr) {
+                //TODO: implement here a cache for value
 
-                    Ipv4Address RRaddr = selectedNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-                    std::cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<< "\033[0;31mLB: selected RR Node address: " << RRaddr<<"\033[0m"<<endl;  
 
-                    CustomTag tag;
-                    tag.SetData(packet->GetUid());
-                    cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: adding tag "<<packet->GetUid()<<" to packet"<<endl; 
 
-                    //convert ipv4addr to string
-                    std::ostringstream oss;
-                    oss << fromIpv4;
+                /*Implementing a cache with n entries for sticky behaviour*/
+                Ipv4Address RRaddr;
+                if(stickyCache->get(fromIpv4) != nullptr) {
 
-                    cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: sending message to the selected replica server: "<<RRaddr<<endl;
-                    Ptr<CustomClient> lbClient = CreateObject<CustomClient>(availableServers.Get(0));
-                    lbClient->sendTo(RRaddr, this->receivingReplicaPort, oss.str() , tag);
-                
-                } else {
-                    std::cout << "\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"No available servers." << std::endl;
+                    cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;34mLB: found in cache sticky for client: "<<fromIpv4<<"\033[0m "<<endl;
+
+                    RRaddr = *stickyCache->get(fromIpv4);   //retrive from the cache the server which served the client before
                 }
+                else {
+
+                    cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;34mLB: NOT found in cache sticky for client: "<<fromIpv4<<"\033[0m "<<endl;
+
+                    RRaddr = RoundRobinSelection();     //select the next server
+
+                    stickyCache->put(fromIpv4, RRaddr);     //add in the cache the pair <client,server> for further use
+                }
+
+
+
+
+                std::cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<< "\033[0;31mLB: selected RR Node address: " << RRaddr<<"\033[0m"<<endl;  
+
+                CustomTag tag;
+                tag.SetData(packet->GetUid());
+
+                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: adding tag "<<packet->GetUid()<<" to packet"<<endl; 
+
+                //convert ipv4addr to string
+                std::ostringstream oss;
+                oss << fromIpv4;
+                string payload =  oss.str();
+
+                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: sending message to the selected replica server: "<<RRaddr<<endl;
+                Ptr<CustomClient> lbClient = CreateObject<CustomClient>(availableServers.Get(0));
+                lbClient->sendTo(RRaddr, this->receivingReplicaPort, payload, tag);
+            
             }    
         }
 
@@ -178,6 +201,7 @@ class LoadBalancer : public Object {
 
     private:
 
+        LRUCache<Ipv4Address, Ipv4Address>* stickyCache;
         Ptr<Node> lbNode;
         Ipv4Address lbAddrToStarInterface;
         Ipv4Address lbAddrToReplicaInterface;
@@ -192,7 +216,7 @@ class LoadBalancer : public Object {
         NodeContainer availableServers;
 
         //this algorithm select one of the avaialable replica servers
-        Ptr<Node> RoundRobinSelection() {
+        Ipv4Address RoundRobinSelection() {
             if (availableServers.GetN() == 0) { return nullptr; }
 
             currentRRIndex = (currentRRIndex + 1) % availableServers.GetN();
@@ -201,7 +225,7 @@ class LoadBalancer : public Object {
 
             Ptr<Node> selectedNode = availableServers.Get(currentRRIndex);
 
-            return selectedNode;
+            return selectedNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
         }
 
 };

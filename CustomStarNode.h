@@ -20,7 +20,10 @@ using namespace ns3;
 using namespace std;
 
 /**
- * Allocate a server in a client node to receive requests to the load balancer
+ * 
+ * Conf Param Here
+ * 
+ * Allocate a server in a client node (from the star) to receive requests to the load balancer
  * this class does not use customclient because is used for simulation
 */
 class CustomStarNode : public Object {
@@ -56,8 +59,8 @@ class CustomStarNode : public Object {
             // install a client with clientHelper
             UdpEchoClientHelper echoClientHelper(lb->getAddressForClient(), lb->getClientPort());
   
-            echoClientHelper.SetAttribute ("MaxPackets", UintegerValue (1));
-            echoClientHelper.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
+            echoClientHelper.SetAttribute ("MaxPackets", UintegerValue (2));    //each node send 5 packets
+            echoClientHelper.SetAttribute ("Interval", TimeValue (Seconds (0.5)));
             echoClientHelper.SetAttribute ("PacketSize", UintegerValue (1024));    
             this->applicationContainer = echoClientHelper.Install(this->starNode);
             this->applicationContainer.Start (Seconds (1.0));
@@ -89,7 +92,7 @@ class CustomStarNode : public Object {
                 packet->CopyData(buffer, packet->GetSize ());
                 std::string payload = std::string((char*)buffer);
 
-                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;32mCLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\" which is the replica server that managed my requests \033[0m"<<endl<<endl;
+                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;32mCLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\" which is the replica server that managed my requests and tag: "<<tag.GetData()<<" \033[0m"<<endl<<endl;
                
             }
         }

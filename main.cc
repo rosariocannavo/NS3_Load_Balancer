@@ -24,8 +24,11 @@
 using namespace ns3;
 using namespace std;
 
-/*
-  star (gw->) p2p (lb->) replica 
+/**
+ * 
+ * Conf Param here 
+ * 
+ * star (gw->) p2p (lb->) replica 
 */
 
 int main (int argc, char *argv[]) {
@@ -70,6 +73,14 @@ int main (int argc, char *argv[]) {
     P2PH.SetChannelAttribute("Delay", StringValue("2ms"));
     NetDeviceContainer p2pDevices;
     p2pDevices = StarpointToPoint.Install(p2pNodes);
+
+
+    /*packet loss in the channel between star and loadbalancer*/
+    Ptr<RateErrorModel> em = CreateObject<RateErrorModel> ();
+    em->SetAttribute ("ErrorRate", DoubleValue (0.0)); // Set the packet loss rate to 10% (0.1) ATTENTION ATTENTION ATTENTIONATTENTION ATTENTIONATTENTION ATTENTION
+    p2pDevices.Get(1)->SetAttribute ("ReceiveErrorModel", PointerValue (em));
+
+
     InternetStackHelper stackH;   //install the stack only on the fresh node, the other 
     stackH.Install (p2pNodes.Get(0));
 
@@ -183,10 +194,10 @@ int main (int argc, char *argv[]) {
     }
     
     
-    //star the simulation
-    for(uint i=0;i<10; i++) {
+    
+    for(uint i=0;i<5; i++) {    //number of client which partecipate to the simulation 
         std::srand(static_cast<unsigned int>(std::time(nullptr)));
-        int random_node = (std::rand() % nSpokes-1) + 1;
+        int random_node = (std::rand() % nSpokes-1) + 1;    
 
         Ptr<CustomStarNode> selectedClient = starNodes[random_node];
 

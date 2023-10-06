@@ -37,7 +37,7 @@ class CustomServer : public Object {
         ~CustomServer() {}
 
         template <typename T>
-        void startServer(void (T::*callbackFunction)(Ptr<Socket>), T* instance) {
+        void startServer(void (T::*callbackFunction)(Ptr<Socket>), T* instance) {  //take as input a void function of class T::namefunction which param is a Ptr<Socket>. the signature is -> void classname::fname(Ptr<Socket>)
 
             this->socket->SetRecvCallback(MakeCallback(callbackFunction, instance));
 
