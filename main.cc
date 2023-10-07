@@ -132,15 +132,15 @@ int main (int argc, char *argv[]) {
     Ptr<Node> lb_addr = p2pNodes.Get(0);
     
     Ipv4Address rcv_addr_p2p = lb_addr->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();    //p2p interface
-    std::cout<<"load balancer address on p2p network (for clients): "<<rcv_addr_p2p<<endl<<"reachable at port: "<<LISTENINGLBPORTFORCLIENT<<endl;
+    std::cout<<"load balancer address on p2p network (for clients): "<<rcv_addr_p2p<<endl<<" reachable at port: "<<LISTENINGLBPORTFORCLIENT<<endl;
 
     Ptr<Node> lb_node_dx = replicaNodes.Get(0);
     Ipv4Address rcv_addr_replica = lb_node_dx->GetObject<Ipv4>()->GetAddress(2,0).GetLocal();   //replica node interface
-    std::cout<<"load balancer address on replica network (for replica servers): "<<rcv_addr_replica<<"reachable at port: "<<LISTENINGLBPORTFORREPLICA<<endl;
+    std::cout<<"load balancer address on replica network (for replica servers): "<<rcv_addr_replica<<" reachable at port: "<<LISTENINGLBPORTFORREPLICA<<endl;
 
     cout<<"Replica servers addresses"<<endl;
     for(uint i=1; i< replicaNodes.GetN(); i++) {
-        cout<<"server "<<i<<" "<<replicaNodes.Get(i)->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<"reachable from load balancer at port: "<<LISTENINGREPLICAPORT<<endl;
+        cout<<"server "<<i<<" "<<replicaNodes.Get(i)->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" reachable from load balancer at port: "<<LISTENINGREPLICAPORT<<endl;
     }
 
     

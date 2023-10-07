@@ -19,6 +19,19 @@
 using namespace ns3;
 using namespace std;
 
+
+ostream& operator<<(ostream& os, const pair<Time, Time>& timePair) {
+    os << " { sndTime: ";
+    os << timePair.first;
+    os << ", rcvTime: ";
+    os << timePair.second;
+    os << " }, RTT: ";
+    Time RTT = timePair.second - timePair.first; 
+    os << RTT.GetSeconds(); 
+    return os;
+}
+
+
 /**
  * 
  * Conf Param Here
@@ -40,6 +53,7 @@ class CustomStarNode : public Object {
             //install a server in the node
             this->rcvServer = CreateObject<CustomServer>(this->starNode, this->starNodeAddr, this->exposingRcvPort);
 
+            RTTTracer = new unordered_map<uint, pair<Time, Time> >();
         }   
 
 
@@ -76,28 +90,27 @@ class CustomStarNode : public Object {
             Address from;
             
             while ((packet = socket->RecvFrom(from))) {
-                //TODO FIX THE RTT TIME maybe create a data structure
                 /*get the rcv time to calculate the rtt*/
                 Time rcvTime = Simulator::Now();    
 
+                
                 InetSocketAddress fromAddr = InetSocketAddress::ConvertFrom(from);
                 Ipv4Address fromIpv4 = fromAddr.GetIpv4();
 
                 CustomTag idTag;
                 packet->PeekPacketTag(idTag);
+                
+                /*insert the rcv time in the custom structure -> rember to take the tag, the packet->guid is from the received not from the original*/
+                (*RTTTracer)[idTag.GetData()].second = rcvTime;
 
-                TimestampTag tsTag;
-                packet->PeekPacketTag(tsTag);
-
-                Time RTT = rcvTime - tsTag.GetTimestamp();
-
+            
                 uint8_t *buffer = new uint8_t[packet->GetSize ()];
                 packet->CopyData(buffer, packet->GetSize ());
                 std::string payload = std::string((char*)buffer);   
 
-
                 cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;32mCLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\" which is the replica server that managed my requests with tag: "<<idTag.GetData()<<" \033[0m"<<endl;
-                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;32mCLIENT: packet sent time: \""<<tsTag.GetTimestamp()<<"\", Packet receive time: \""<<rcvTime<<"\", RTT: "<<RTT.GetMilliSeconds()<<" ms\033[0m"<<endl<<endl;
+                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;32mCLIENT: packetIdTag: \": "<<idTag.GetData()<<"\""<<(*RTTTracer)[idTag.GetData()]<<"\033[0m"<<endl; //here using operator overload
+
             }
         }
 
@@ -138,20 +151,21 @@ class CustomStarNode : public Object {
         uint exposingRcvPort;
         Ipv4Address starNodeAddr;
         ApplicationContainer applicationContainer; 
-        
+        unordered_map<uint, pair<Time, Time> >* RTTTracer;
+
+        /*declare this operator overload friend to access the data from the structure*/
+        friend std::ostream& operator<<(std::ostream& os, const std::pair<ns3::Time, ns3::Time>& timePair);
+
 
         void AddTagCallback(Ptr<const Packet> packet) {
-            TimestampTag timestampTag;
-            timestampTag.SetTimestamp(Simulator::Now());
+
+            (*RTTTracer)[packet->GetUid()] = make_pair(Simulator::Now(), Time()); //for the second element use the default constructor to create an empty time
 
             CustomTag idTag;    //identify the single packet
             idTag.SetData(packet->GetUid());
-
-            packet->AddPacketTag(timestampTag);
             packet->AddPacketTag(idTag);
         }
-
-    
+  
 };
 
 #endif

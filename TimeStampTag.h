@@ -7,10 +7,11 @@
 using namespace ns3;
 
 
-//TimestampTag timestampTag;
-//    timestampTag.SetTimestamp(Simulator::Now());
+
 /**
  * Use this class to attach a custom tag to a packet and analyze the time difference
+ * 
+ * temporarily not used
 */
 class TimestampTag : public Tag {
         

@@ -73,13 +73,8 @@ class ReplicaServer : public Object {
             CustomTag idTag;
             packet->PeekPacketTag(idTag);
 
-            TimestampTag receivedTsTag;
-            packet->PeekPacketTag(receivedTsTag);
-
             StickyTag receivedSticky;
             packet->PeekPacketTag(receivedSticky);
-
-
 
             std::cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender and tag: \""<<idTag.GetData()<<"\""<<endl;
 
@@ -98,16 +93,20 @@ class ReplicaServer : public Object {
 
             /*apply delay only if not sticky*/
             if(receivedSticky.GetFlag() == 0) {
+
                 randomSleep();
+
             }else {
+
                 cout<<"\033[0;34mReplica: response solving time: None cause of sticky behaviour"<<"\033[0m "<<endl;
+
             }
             
 
             /* replying to the load balancer using the other port -> done instantiating a custom client*/
             cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<idTag.GetData()<<endl;
             Ptr<CustomClient> replicaClient = CreateObject<CustomClient>(this->replicaNode);
-            replicaClient->sendTo(fromIpv4, this->loadBalancerPort, payload, idTag, receivedTsTag);
+            replicaClient->sendTo(fromIpv4, this->loadBalancerPort, payload, idTag);
         }
     }
 

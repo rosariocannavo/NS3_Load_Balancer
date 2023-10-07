@@ -97,10 +97,6 @@ class LoadBalancer : public Object {
                 CustomTag idTag;
                 packet->PeekPacketTag(idTag);
 
-                TimestampTag receivedTsTag;
-                packet->PeekPacketTag(receivedTsTag);
-
-
                 //from string to address
                 ns3::Ipv4Address clientAddress(payload.c_str());
 
@@ -111,7 +107,7 @@ class LoadBalancer : public Object {
 
                 cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LBfromReplicaSender: sending obtained response for tag: "<<idTag.GetData()<<" to the client "<<payload.c_str()<<" who sent the request"<<endl;
                 Ptr<CustomClient> responseClient = CreateObject<CustomClient>(availableServers.Get(0));
-                responseClient->sendTo(clientAddress, this->receivingClientPort, oss.str(), idTag, receivedTsTag);
+                responseClient->sendTo(clientAddress, this->receivingClientPort, oss.str(), idTag);
 
             }
         }
@@ -129,15 +125,12 @@ class LoadBalancer : public Object {
                 uint32_t dataSize = packet->GetSize();     
                 Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
 
-                /*timestamp tag added by the client -> important to know the delay between request and response*/
-                TimestampTag receivedTsTag;
-                packet->PeekPacketTag(receivedTsTag);
-
+            
                 /*customTg tag added by the client -> an unique identifier for the packet*/
                 CustomTag idTag;
                 packet->PeekPacketTag(idTag);
 
-                cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 <<" with timestamp tag: \" "<<receivedTsTag.GetTimestamp()<<" \" which is the sent time and idTag: \""<<idTag.GetData()<<"\""<<endl;
+                cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 <<" whit idTag: \""<<idTag.GetData()<<"\""<<endl;
 
 
                 //TODO: implement here a cache for value
@@ -145,7 +138,7 @@ class LoadBalancer : public Object {
 
 
                 /*Implementing a cache with n entries for sticky behaviour*/
-                
+
                 Ipv4Address RRaddr;
                 StickyTag stickyTag;    //if sticky 1 else 0
 
@@ -184,7 +177,7 @@ class LoadBalancer : public Object {
                 Ptr<CustomClient> lbClient = CreateObject<CustomClient>(availableServers.Get(0));
 
                 /*passing the same tag added by the client*/
-                lbClient->sendTo(RRaddr, this->receivingReplicaPort, payload, idTag, receivedTsTag, stickyTag);
+                lbClient->sendTo(RRaddr, this->receivingReplicaPort, payload, idTag, stickyTag);
             
             }    
         }

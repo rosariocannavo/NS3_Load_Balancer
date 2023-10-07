@@ -18,8 +18,6 @@ struct PairHash {
         std::size_t h1 = std::hash<std::string>{}(oss1.str());
         return h1;
     }
-
-    
 };
 
 
