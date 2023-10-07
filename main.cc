@@ -32,6 +32,8 @@ using namespace std;
 */
 
 int main (int argc, char *argv[]) {
+        std::cout << "__cplusplus value: " << __cplusplus << std::endl;
+
     Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (1000));
     Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("100kb/s"));
     Config::SetDefault ("ns3::OnOffApplication::MaxBytes", UintegerValue (50000));
@@ -241,8 +243,5 @@ int main (int argc, char *argv[]) {
     Simulator::Destroy ();
 
     return 0;
-
-
-
 
 }

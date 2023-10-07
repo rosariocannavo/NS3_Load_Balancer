@@ -14,6 +14,7 @@
 #include <ns3/tag.h>
 
 #include "CustomTag.h"
+#include "StickyTag.h"
 #include "CustomClient.h"
 #include "CustomServer.h"
 #include "LRUCache.h"
@@ -61,7 +62,9 @@ class LoadBalancer : public Object {
         LoadBalancer() {}
 
 
-        ~LoadBalancer() {}
+        ~LoadBalancer() {
+            this->Dispose();
+        }
 
 
         void start() {
@@ -80,9 +83,9 @@ class LoadBalancer : public Object {
                 Ipv4Address fromIpv4 = fromAddr.GetIpv4();
 
                 uint32_t dataSize = packet->GetSize();
-
                 Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
 
+                //extract the packet payload which represent the original client address
                 uint8_t *buffer = new uint8_t[packet->GetSize ()];
                 packet->CopyData(buffer, packet->GetSize ());
                 std::string payload = std::string((char*)buffer);
@@ -91,8 +94,12 @@ class LoadBalancer : public Object {
                 
 
                 //trasmit the processed request to requirent client
-                CustomTag tag;
-                packet->PeekPacketTag(tag);
+                CustomTag idTag;
+                packet->PeekPacketTag(idTag);
+
+                TimestampTag receivedTsTag;
+                packet->PeekPacketTag(receivedTsTag);
+
 
                 //from string to address
                 ns3::Ipv4Address clientAddress(payload.c_str());
@@ -102,9 +109,9 @@ class LoadBalancer : public Object {
                 oss << fromIpv4;
 
 
-                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LBfromReplicaSender: sending obtained response for tag: "<<tag.GetData()<<" to the client "<<payload.c_str()<<" who sent the request"<<endl;
+                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LBfromReplicaSender: sending obtained response for tag: "<<idTag.GetData()<<" to the client "<<payload.c_str()<<" who sent the request"<<endl;
                 Ptr<CustomClient> responseClient = CreateObject<CustomClient>(availableServers.Get(0));
-                responseClient->sendTo(clientAddress, this->receivingClientPort, oss.str(), tag);
+                responseClient->sendTo(clientAddress, this->receivingClientPort, oss.str(), idTag, receivedTsTag);
 
             }
         }
@@ -120,11 +127,17 @@ class LoadBalancer : public Object {
                 Ipv4Address fromIpv4 = fromAddr.GetIpv4();
 
                 uint32_t dataSize = packet->GetSize();     
-
                 Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
 
+                /*timestamp tag added by the client -> important to know the delay between request and response*/
+                TimestampTag receivedTsTag;
+                packet->PeekPacketTag(receivedTsTag);
 
-                std::cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << std::endl;
+                /*customTg tag added by the client -> an unique identifier for the packet*/
+                CustomTag idTag;
+                packet->PeekPacketTag(idTag);
+
+                cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 <<" with timestamp tag: \" "<<receivedTsTag.GetTimestamp()<<" \" which is the sent time and idTag: \""<<idTag.GetData()<<"\""<<endl;
 
 
                 //TODO: implement here a cache for value
@@ -132,12 +145,17 @@ class LoadBalancer : public Object {
 
 
                 /*Implementing a cache with n entries for sticky behaviour*/
+                
                 Ipv4Address RRaddr;
+                StickyTag stickyTag;    //if sticky 1 else 0
+
                 if(stickyCache->get(fromIpv4) != nullptr) {
 
                     cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;34mLB: found in cache sticky for client: "<<fromIpv4<<"\033[0m "<<endl;
 
                     RRaddr = *stickyCache->get(fromIpv4);   //retrive from the cache the server which served the client before
+
+                    stickyTag.SetFlag(1);
                 }
                 else {
 
@@ -146,26 +164,27 @@ class LoadBalancer : public Object {
                     RRaddr = RoundRobinSelection();     //select the next server
 
                     stickyCache->put(fromIpv4, RRaddr);     //add in the cache the pair <client,server> for further use
+
+                    stickyTag.SetFlag(0);
                 }
 
 
 
 
-                std::cout <<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<< "\033[0;31mLB: selected RR Node address: " << RRaddr<<"\033[0m"<<endl;  
-
-                CustomTag tag;
-                tag.SetData(packet->GetUid());
-
-                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: adding tag "<<packet->GetUid()<<" to packet"<<endl; 
+                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<< "\033[0;31mLB: selected RR Node address: " << RRaddr<<"\033[0m"<<endl;  
+                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: adding tag "<<idTag.GetData()<<" to packet"<<endl; 
 
                 //convert ipv4addr to string
                 std::ostringstream oss;
                 oss << fromIpv4;
-                string payload =  oss.str();
+                string payload =  oss.str();    //represent the clientsender, maybe add as tag later
 
                 cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"LB: sending message to the selected replica server: "<<RRaddr<<endl;
+
                 Ptr<CustomClient> lbClient = CreateObject<CustomClient>(availableServers.Get(0));
-                lbClient->sendTo(RRaddr, this->receivingReplicaPort, payload, tag);
+
+                /*passing the same tag added by the client*/
+                lbClient->sendTo(RRaddr, this->receivingReplicaPort, payload, idTag, receivedTsTag, stickyTag);
             
             }    
         }

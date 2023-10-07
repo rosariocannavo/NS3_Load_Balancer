@@ -36,41 +36,98 @@ class CustomClient : public Object {
 
         ~CustomClient() {}
 
-    
-        void sendTo(Ipv4Address receiver, uint bindingPort, string message,  CustomTag tag) {
-            cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" with tag: \""<<tag.GetData()<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
+
+        /*this function uses ellipsis operator to adapt to a list of generic parameters*/
+        template <typename... Tags>
+        void sendTo(Ipv4Address receiver, uint bindingPort, string message, Tags... tags) {
+            cout << "\033[0;33mAt time: " << Simulator::Now() << "\033[0m "
+                << "CC: I am " << this->node->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal()
+                << " sending custom message \"" << message << "\" to " << receiver
+                << " on port " << bindingPort << endl;
 
             this->socket->Connect(InetSocketAddress(receiver, bindingPort));
 
             Ptr<Packet> packet = Create<Packet>((const uint8_t*)message.c_str(), message.size());
 
-            packet->AddPacketTag(tag);
+            (packet->AddPacketTag(tags), ...);  // Add all provided tags to the packet
+
+            this->socket->Send(packet);
+        }
+
+
+        // void sendTo(Ipv4Address receiver, uint bindingPort, string message, CustomTag idTag, TimestampTag tstag, StickyTag stickyTag) {
+        //     cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" with all tags to "<<receiver<<" on port "<<bindingPort<<endl;
+
+        //     this->socket->Connect(InetSocketAddress(receiver, bindingPort));
             
-            this->socket->Send(packet);
-        }
+        //     Ptr<Packet> packet = Create<Packet>((const uint8_t*)message.data(), message.size());
 
-        void sendTo(Ipv4Address receiver, uint bindingPort, string message, TimestampTag tstag) {
-            cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" with timestamp: \""<<tstag.GetTimestamp()<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
+        //     packet->AddPacketTag(idTag);
 
-            this->socket->Connect(InetSocketAddress(receiver, bindingPort));
-            Ptr<Packet> packet = Create<Packet>((const uint8_t*)message.c_str(), message.size());
+        //     packet->AddPacketTag(tstag);
 
-            packet->AddPacketTag(tstag);
+        //     packet->AddPacketTag(stickyTag);
 
-            //seg fault here on client
-            this->socket->Send(packet);
-        }
+        //     this->socket->Send(packet);
+        // }
+
+
+        // void sendTo(Ipv4Address receiver, uint bindingPort, string message, CustomTag idTag, TimestampTag tstag) {
+        //     cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" with timestamp: \""<<tstag.GetTimestamp()<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
+
+        //     this->socket->Connect(InetSocketAddress(receiver, bindingPort));
+            
+        //     Ptr<Packet> packet = Create<Packet>((const uint8_t*)message.data(), message.size());
+
+        //     packet->AddPacketTag(idTag);
+
+        //     packet->AddPacketTag(tstag);
+
+        //     this->socket->Send(packet);
+        // }
 
     
-        void sendTo(Ipv4Address receiver, uint bindingPort, string message) {
-            cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
+        // void sendTo(Ipv4Address receiver, uint bindingPort, string message,  CustomTag idTag) {
+        //     cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" with tag: \""<<idTag.GetData()<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
 
-            this->socket->Connect(InetSocketAddress(receiver, bindingPort));
+        //     this->socket->Connect(InetSocketAddress(receiver, bindingPort));
 
-            Ptr<Packet> packet = Create<Packet>((const uint8_t*)message.c_str(), message.size());
+        //     Ptr<Packet> packet = Create<Packet>((const uint8_t*)message.c_str(), message.size());
 
-            this->socket->Send(packet);
+        //     packet->AddPacketTag(idTag);
+            
+        //     this->socket->Send(packet);
+        // }
+
+
+        // void sendTo(Ipv4Address receiver, uint bindingPort, string message, TimestampTag tstag) {
+        //     cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" with timestamp: \""<<tstag.GetTimestamp()<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
+
+        //     this->socket->Connect(InetSocketAddress(receiver, bindingPort));
+
+        //     Ptr<Packet> packet = Create<Packet>((const uint8_t*)message.data(), message.size());
+
+        //     packet->AddPacketTag(tstag);
+
+        //     this->socket->Send(packet);
+        // }
+
+    
+        // void sendTo(Ipv4Address receiver, uint bindingPort, string message) {
+        //     cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"CC: I am "<<this->node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" sending custom message \""<<message<<"\" to "<<receiver<<" on port "<<bindingPort<<endl;
+
+        //     this->socket->Connect(InetSocketAddress(receiver, bindingPort));
+
+        //     Ptr<Packet> packet = Create<Packet>((const uint8_t*)message.c_str(), message.size());
+
+        //     this->socket->Send(packet);
+        // }
+
+
+        void closeSocket() {
+            this->socket->Close();
         }
+
 
         static TypeId GetTypeId (void) {
             static TypeId tid = TypeId ("CustomClient")

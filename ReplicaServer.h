@@ -61,28 +61,33 @@ class ReplicaServer : public Object {
             InetSocketAddress fromAddr = InetSocketAddress::ConvertFrom(from);
             Ipv4Address fromIpv4 = fromAddr.GetIpv4();
 
-            // each packet has a tag and it is used for managing the responses once the replica
-            // servers responde to the load balancer
-
             Ipv4Address receiver = socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
 
-            //collecting payload                        
             uint32_t dataSize = packet->GetSize();
 
+            //collecting payload                        
             uint8_t *buffer = new uint8_t[packet->GetSize ()];
             packet->CopyData(buffer, packet->GetSize ());
             std::string payload = std::string((char*)buffer);
 
-            CustomTag retriviedTag;
-            packet->PeekPacketTag(retriviedTag);
+            CustomTag idTag;
+            packet->PeekPacketTag(idTag);
 
-            std::cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender and tag: \""<<retriviedTag.GetData()<<"\""<<endl;
+            TimestampTag receivedTsTag;
+            packet->PeekPacketTag(receivedTsTag);
+
+            StickyTag receivedSticky;
+            packet->PeekPacketTag(receivedSticky);
+
+
+
+            std::cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender and tag: \""<<idTag.GetData()<<"\""<<endl;
 
             //simulate the processing request time (0.1-1.5) seconds
             auto randomSleep = []() {
                 std::random_device rd;
                 std::mt19937 gen(rd());
-                std::uniform_real_distribution<> dis(0.1, 1.5); // Define the range
+                std::uniform_real_distribution<> dis(1, 2.5); // Define the range
 
                 double sleepTime = dis(gen);
                 std::chrono::milliseconds sleepDuration(static_cast<int>(sleepTime * 1000));
@@ -91,13 +96,18 @@ class ReplicaServer : public Object {
                 std::this_thread::sleep_for(sleepDuration);
             };
 
-            randomSleep();
+            /*apply delay only if not sticky*/
+            if(receivedSticky.GetFlag() == 0) {
+                randomSleep();
+            }else {
+                cout<<"\033[0;34mReplica: response solving time: None cause of sticky behaviour"<<"\033[0m "<<endl;
+            }
+            
 
             /* replying to the load balancer using the other port -> done instantiating a custom client*/
-            cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<retriviedTag.GetData()<<endl;
+            cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<idTag.GetData()<<endl;
             Ptr<CustomClient> replicaClient = CreateObject<CustomClient>(this->replicaNode);
-            replicaClient->sendTo(fromIpv4, this->loadBalancerPort, payload, retriviedTag);
-
+            replicaClient->sendTo(fromIpv4, this->loadBalancerPort, payload, idTag, receivedTsTag);
         }
     }
 

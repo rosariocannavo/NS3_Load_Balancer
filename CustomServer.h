@@ -36,6 +36,7 @@ class CustomServer : public Object {
 
         ~CustomServer() {}
 
+
         template <typename T>
         void startServer(void (T::*callbackFunction)(Ptr<Socket>), T* instance) {  //take as input a void function of class T::namefunction which param is a Ptr<Socket>. the signature is -> void classname::fname(Ptr<Socket>)
 
@@ -57,10 +58,10 @@ class CustomServer : public Object {
             return this->address;
         }
 
+
         uint getServerPort() {
             return this->port;
         }
-
 
 
     private:

@@ -11,13 +11,15 @@
 */
 template <typename KeyType>
 struct PairHash {
-    std::size_t operator()(const KeyType& key) const {      //defining the object like this you can call the Object as a function -> PairHash p -> p(key) its an overload 
+    std::size_t operator()(const KeyType& key) const {      //defining the object like this you can call the Object as a function -> PairHash p -> p(key) its an overload of () operator
         std::ostringstream oss1;
         oss1 << key;   
 
         std::size_t h1 = std::hash<std::string>{}(oss1.str());
         return h1;
     }
+
+    
 };
 
 

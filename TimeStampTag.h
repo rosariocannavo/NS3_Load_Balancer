@@ -16,12 +16,20 @@ class TimestampTag : public Tag {
         
     public:
 
-        TimestampTag() : m_timestamp(0) {}
+        TimestampTag()  {
+            this->m_timestamp = 0;
+        }
 
+        TimestampTag() {}
+
+
+        ~TimestampTag() {}
+    
 
         static TypeId GetTypeId(void) {
             static TypeId tid = TypeId("ns3::TimestampTag")
                 .SetParent<Tag>()
+                .SetGroupName ("Demo")
                 .AddConstructor<TimestampTag>();
             return tid;
         }
@@ -59,18 +67,6 @@ class TimestampTag : public Tag {
 
         Time GetTimestamp(void) const {
             return m_timestamp;
-        }
-
-
-        // Function to calculate the time difference between a request and a response
-        Time CalculateTimeDifference(Ptr<Packet> requestPacket, Ptr<Packet> responsePacket) {
-            TimestampTag requestTimestampTag;
-            TimestampTag responseTimestampTag;
-            
-            requestPacket->PeekPacketTag(requestTimestampTag);
-            responsePacket->PeekPacketTag(responseTimestampTag);
-            
-            return responseTimestampTag.GetTimestamp() - requestTimestampTag.GetTimestamp();
         }
 
 
