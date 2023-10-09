@@ -11,62 +11,62 @@ using namespace ns3;
 */
 class StickyTag : public Tag {
 
-  public:
+    public:
 
-    StickyTag() : m_simpleValue(0) {}  
-
-    static TypeId GetTypeId(void) {
-        static TypeId tid = TypeId("ns3::StickyTag")
-                                .SetParent<Tag>()
-                                .AddConstructor<StickyTag>()
-                                .AddAttribute("SimpleValue",
-                                              "A simple value",
-                                              EmptyAttributeValue(),
-                                              MakeUintegerAccessor(&StickyTag::GetFlag),
-                                              MakeUintegerChecker<uint8_t>());
-        return tid;
-    }
+        StickyTag() : m_simpleValue(0) {}  
 
 
-    virtual TypeId GetInstanceTypeId(void) const {
-        return GetTypeId();
-    }
+        static TypeId GetTypeId(void) {
+            static TypeId tid = TypeId("ns3::StickyTag")
+                                    .SetParent<Tag>()
+                                    .AddConstructor<StickyTag>()
+                                    .AddAttribute("SimpleValue",
+                                                "A simple value",
+                                                EmptyAttributeValue(),
+                                                MakeUintegerAccessor(&StickyTag::GetFlag),
+                                                MakeUintegerChecker<uint8_t>());
+            return tid;
+        }
 
 
-    virtual uint32_t GetSerializedSize(void) const {
-        return 1;
-    }
+        virtual TypeId GetInstanceTypeId(void) const {
+            return GetTypeId();
+        }
 
 
-    virtual void Serialize(TagBuffer i) const {
-        i.WriteU8(m_simpleValue);
-    }
+        virtual uint32_t GetSerializedSize(void) const {
+            return 1;
+        }
 
 
-    virtual void Deserialize(TagBuffer i) {
-        m_simpleValue = i.ReadU8();
-    }
+        virtual void Serialize(TagBuffer i) const {
+            i.WriteU8(m_simpleValue);
+        }
 
 
-    virtual void Print(std::ostream& os) const {
-        os << "v=" << (uint32_t)m_simpleValue;
-    }
+        virtual void Deserialize(TagBuffer i) {
+            m_simpleValue = i.ReadU8();
+        }
 
 
-    void SetFlag(uint value) {
-        m_simpleValue = value;
-    }
+        virtual void Print(std::ostream& os) const {
+            os << "v=" << (uint32_t)m_simpleValue;
+        }
 
 
-    uint GetFlag(void) const {
-        return m_simpleValue;
-    }
-    
+        void SetFlag(uint value) {
+            m_simpleValue = value;
+        }
 
 
-  private:
+        uint GetFlag(void) const {
+            return m_simpleValue;
+        }
+        
 
-    uint m_simpleValue;
+    private:
+
+        uint m_simpleValue;
 
 };
 

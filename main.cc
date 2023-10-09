@@ -11,7 +11,6 @@
 
 #include <thread>
 
-
 #include "LoadBalancer.h"
 #include "ReplicaServer.h"
 #include "CustomStarNode.h"
@@ -32,7 +31,7 @@ using namespace std;
 */
 
 int main (int argc, char *argv[]) {
-        std::cout << "__cplusplus value: " << __cplusplus << std::endl;
+    std::cout << "__cplusplus value: " << __cplusplus << std::endl;
 
     Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (1000));
     Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("100kb/s"));
@@ -40,9 +39,36 @@ int main (int argc, char *argv[]) {
    
     uint32_t nSpokes = 100; //number of nodes in the star
     uint32_t seed = 123;
+    uint32_t nReplicaServers = 3;
+    uint32_t nActiveClient = 10;
+    uint32_t nPacketSentByEachClient = 10;
+    string   starDataRate = "1Mbps";
+    string   starDelay = "2ms";
+    double   clientChannelErrorRate = 0;
+    string   P2PDataRate = "1Mbps";
+    string   P2PDelay = "2ms";
+    string   replicaDataRate = "100Mbps";
+    uint32_t replicaDelay = 6000560;
+    uint32_t stickyCacheDim = nSpokes/3;
+    uint32_t selectedAlgorithm = 0;
+    
+    
     CommandLine cmd;
     cmd.AddValue ("nSpokes", "Number of external nodes to place in the star", nSpokes);
     cmd.AddValue ("seed", "RNG seed", seed);
+    cmd.AddValue ("nReplicaServers", "Number of replica server to allocate", nReplicaServers);
+    cmd.AddValue ("nActiveClient", "The total number of client nodes that request packets from the load balancer (1 to nSpokes)", nActiveClient);
+    cmd.AddValue ("nPacketSentByEachClient", "The number of packets sent by each client node to the load balancer", nPacketSentByEachClient);
+    cmd.AddValue ("starDataRate", "The data rate (bandwidth) of the star channel. This parameter defines the rate at which data can be transmitted over the channel", starDataRate);
+    cmd.AddValue ("starDelay", "The delay (latency) of the star channel. This parameter defines the time it takes for packets to traverse a channel", starDelay);
+    cmd.AddValue ("clientChannelErrorRate", "The error rate (or packet loss rate) of the communication channel between clients and the load balancer (0.10 = 10%)", clientChannelErrorRate);
+    cmd.AddValue ("P2PDataRate", "The data rate (bandwidth) of the P2P channel (star to lb). This parameter defines the rate at which data can be transmitted over the channel", P2PDataRate);
+    cmd.AddValue ("P2PDelay", "The delay (latency) of the P2P channel (star to lb). This parameter defines the time it takes for packets to traverse a channel", P2PDelay);
+    cmd.AddValue ("replicaDataRate", "The data rate (bandwidth) of the Replica channel (lb to servers). This parameter defines the rate at which data can be transmitted over the channel", replicaDataRate);
+    cmd.AddValue ("replicaDelay", "The delay (latency) of the P2P channel (lb to servers). This parameter defines the time it takes for packets to traverse a channel (expressed in ns)", replicaDelay);
+    cmd.AddValue ("stickyCacheDim", "The number of maximum entry of the cache for sticky session", stickyCacheDim);
+    cmd.AddValue ("algorithm", "Algorithm used by the load balancer: \n \t\t\t\t\t0: Round Robin; \n \t\t\t\t\t1: IpHash \n \t\t\t\t\t2: Random\n\t\t\t\t\t", selectedAlgorithm);
+
     cmd.Parse (argc, argv);
 
     Time::SetResolution (Time::NS);
@@ -50,12 +76,13 @@ int main (int argc, char *argv[]) {
     LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
     LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
 
+    
 
 
     //STAR ALLOCATION
     PointToPointHelper StarpointToPoint;
-    StarpointToPoint.SetDeviceAttribute ("DataRate", StringValue ("1Mbps"));
-    StarpointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+    StarpointToPoint.SetDeviceAttribute ("DataRate", StringValue (starDataRate));
+    StarpointToPoint.SetChannelAttribute ("Delay", StringValue (starDelay));
     PointToPointStarHelper star (nSpokes, StarpointToPoint);
     InternetStackHelper StarStackIP;
     star.InstallStack (StarStackIP);
@@ -71,15 +98,15 @@ int main (int argc, char *argv[]) {
     p2pNodes.Create(1); //p2pNodes.Get(0) will be the load balancer
     p2pNodes.Add(star.GetSpokeNode(floor(nSpokes/2)));  //a mid star node will be the gateway  
     PointToPointHelper P2PH;
-    P2PH.SetDeviceAttribute("DataRate", StringValue("1Mbps"));
-    P2PH.SetChannelAttribute("Delay", StringValue("2ms"));
+    P2PH.SetDeviceAttribute("DataRate", StringValue(P2PDataRate));
+    P2PH.SetChannelAttribute("Delay", StringValue(P2PDelay));
     NetDeviceContainer p2pDevices;
     p2pDevices = StarpointToPoint.Install(p2pNodes);
 
 
     /*packet loss in the channel between star and loadbalancer*/
     Ptr<RateErrorModel> em = CreateObject<RateErrorModel> ();
-    em->SetAttribute ("ErrorRate", DoubleValue (0.0)); // Set the packet loss rate to 10% (0.1) ATTENTION ATTENTION ATTENTIONATTENTION ATTENTIONATTENTION ATTENTION
+    em->SetAttribute ("ErrorRate", DoubleValue (clientChannelErrorRate)); // Set the packet loss rate to 10% (0.1) ATTENTION ATTENTION ATTENTIONATTENTION ATTENTIONATTENTION ATTENTION
     p2pDevices.Get(1)->SetAttribute ("ReceiveErrorModel", PointerValue (em));
 
 
@@ -103,11 +130,11 @@ int main (int argc, char *argv[]) {
     //REPLICASERVER ALLOCATION
     NodeContainer replicaNodes;
     replicaNodes.Add(p2pNodes.Get(0));
-    replicaNodes.Create(3); //number of replicas
+    replicaNodes.Create(nReplicaServers); //number of replicas
 
     CsmaHelper csmah;
-    csmah.SetChannelAttribute ("DataRate", StringValue ("100Mbps"));
-    csmah.SetChannelAttribute ("Delay", TimeValue (NanoSeconds (6000560)));
+    csmah.SetChannelAttribute ("DataRate", StringValue (replicaDataRate));
+    csmah.SetChannelAttribute ("Delay", TimeValue (NanoSeconds (replicaDelay)));
 
     NetDeviceContainer csmaDevices;
     csmaDevices = csmah.Install (replicaNodes);
@@ -122,7 +149,7 @@ int main (int argc, char *argv[]) {
 
     
 
-    // //PRINT GENERAL INFO
+    //PRINT GENERAL INFO
     cout<<"Each client is avaiable at port: "<<LISTENINGCLIENTPORT<<endl;
 
     Ptr<Node> lb_node_sx = star.GetSpokeNode(floor(nSpokes/2));
@@ -178,10 +205,9 @@ int main (int argc, char *argv[]) {
 
     
 
-
     //create a load balancer that expose itself
     Ptr<Node> lb_node = p2pNodes.Get(0);
-    Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(lb_node, LISTENINGLBPORTFORCLIENT, LISTENINGLBPORTFORREPLICA, LISTENINGREPLICAPORT , LISTENINGCLIENTPORT, replicaNodes); 
+    Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(lb_node, LISTENINGLBPORTFORCLIENT, LISTENINGLBPORTFORREPLICA, LISTENINGREPLICAPORT , LISTENINGCLIENTPORT, replicaNodes, selectedAlgorithm, stickyCacheDim); 
     //lb->start();
 
     std::thread lbThread([lb]() {lb->start();} );
@@ -192,55 +218,39 @@ int main (int argc, char *argv[]) {
     Ptr<CustomStarNode> starNodes[nSpokes];
 
     for(uint i=0; i<nSpokes; i++) { 
-        starNodes[i] = CreateObject<CustomStarNode>(star.GetSpokeNode(i), LISTENINGCLIENTPORT, lb);
+        starNodes[i] = CreateObject<CustomStarNode>(star.GetSpokeNode(i), LISTENINGCLIENTPORT, lb, nPacketSentByEachClient);
     }
     
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(1, nSpokes-1); 
     
-    
-    for(uint i=0;i<5; i++) {    //number of client which partecipate to the simulation 
-        std::srand(static_cast<unsigned int>(std::time(nullptr)));
-        int random_node = (std::rand() % nSpokes-1) + 1;    
+    for(uint i=0;i<nActiveClient; i++) {    //number of client which partecipate to the simulation 
+
+
+       
+        int random_node = dis(gen);  
 
         Ptr<CustomStarNode> selectedClient = starNodes[random_node];
 
-        cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
+        cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
 
         //selectedClient->start();
 
         std::thread thread([&selectedClient]() {
             selectedClient->start();
         });
-        thread.join();
 
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        thread.detach();
+
+        
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
    
-
-
-
-    // AnimationInterface anim("demo_star2.xml");
-    // float x = 500.0, y = 500.0, dx = 50.0;
-
-    // anim.SetConstantPosition(star.GetHub(), x, y);
-    // anim.UpdateNodeColor(star.GetHub(), 255, 0, 0); // Red color for hub
-
-    // for (uint32_t i = 0; i < nSpokes; ++i) {
-    //     if (star.GetSpokeNode(i) == star.GetHub()) continue;
-    //     anim.SetConstantPosition(star.GetSpokeNode(i), x + dx * (i + 1), y);
-    //     anim.UpdateNodeColor(star.GetSpokeNode(i), 0, 255, 0); // Green color for spokes
-    // }   
-
-    // anim.SetConstantPosition(p2pNodes.Get(0), x + dx * (nSpokes + 2 + 1), y);
-    // anim.UpdateNodeColor(p2pNodes.Get(0), 0, 0, 255); // Blue color for p2pNodes.Get(0)
-
-    // for (uint32_t i = 0; i < replicaNodes.GetN(); ++i) {
-    //     anim.SetConstantPosition(replicaNodes.Get(i), x + dx * (i + 1) + 50, y + 50);
-    //     anim.UpdateNodeColor(star.GetSpokeNode(i), 255,255, 0); // Green color for spokes
-    // }
-
-
-    Simulator::Run ();
-    Simulator::Destroy ();
+    Simulator::Run();
+    Simulator::Destroy();
 
     return 0;
 

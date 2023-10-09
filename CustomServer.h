@@ -21,12 +21,15 @@ class CustomServer : public Object {
 
     public: 
 
-        CustomServer(Ptr<Node> node, Ipv4Address address, uint port) {
+        CustomServer(Ptr<Node> node, Ipv4Address address, uint port, string connType = "UDP") {
             this->node = node;
             this->address = address;
             this->port = port;
 
-            this->socket = Socket::CreateSocket(this->node, UdpSocketFactory::GetTypeId());
+            if(connType == "TCP")    this->socket = Socket::CreateSocket(this->node, TcpSocketFactory::GetTypeId());
+            else                     this->socket = Socket::CreateSocket(this->node, UdpSocketFactory::GetTypeId());
+        
+
             this->socket->Bind(InetSocketAddress(this->address, this->port));
         }
 

@@ -12,6 +12,8 @@
 #include "ns3/mobility-module.h"
 #include "ns3/udp-socket.h"
 
+#include "ns3/gnuplot.h" 
+
 #include "CustomServer.h"
 #include "TimeStampTag.h"
 #include "CustomClient.h"
@@ -22,12 +24,13 @@ using namespace std;
 
 ostream& operator<<(ostream& os, const pair<Time, Time>& timePair) {
     os << " { sndTime: ";
-    os << timePair.first;
+    os << timePair.first.GetSeconds()<<"s";
     os << ", rcvTime: ";
-    os << timePair.second;
+    os << timePair.second.GetSeconds()<<"s";
     os << " }, RTT: ";
     Time RTT = timePair.second - timePair.first; 
     os << RTT.GetSeconds(); 
+    os << "s";
     return os;
 }
 
@@ -43,17 +46,18 @@ class CustomStarNode : public Object {
 
     public:
         
-        CustomStarNode(Ptr<Node> starNode, uint exposingRcvPort, Ptr<LoadBalancer> lb) {
+        CustomStarNode(Ptr<Node> starNode, uint exposingRcvPort, Ptr<LoadBalancer> lb, uint nPacketToSend) {
             this->lb = lb;
-
             this->starNode = starNode;
             this->exposingRcvPort = exposingRcvPort;
             this->starNodeAddr = starNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
+            this->nPacketToSend = nPacketToSend;
 
             //install a server in the node
             this->rcvServer = CreateObject<CustomServer>(this->starNode, this->starNodeAddr, this->exposingRcvPort);
 
             RTTTracer = new unordered_map<uint, pair<Time, Time> >();
+
         }   
 
 
@@ -69,8 +73,8 @@ class CustomStarNode : public Object {
             // install a client with clientHelper
             UdpEchoClientHelper echoClientHelper(lb->getAddressForClient(), lb->getClientPort());
   
-            echoClientHelper.SetAttribute ("MaxPackets", UintegerValue (5));    //each node send 5 packets
-            echoClientHelper.SetAttribute ("Interval", TimeValue (Seconds (0.5)));
+            echoClientHelper.SetAttribute ("MaxPackets", UintegerValue (this->nPacketToSend));    //each node send 5 packets
+            echoClientHelper.SetAttribute ("Interval", TimeValue (Seconds (10)));
             echoClientHelper.SetAttribute ("PacketSize", UintegerValue (1024));    
             this->applicationContainer = echoClientHelper.Install(this->starNode);
         
@@ -108,9 +112,8 @@ class CustomStarNode : public Object {
                 packet->CopyData(buffer, packet->GetSize ());
                 std::string payload = std::string((char*)buffer);   
 
-                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;32mCLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\" which is the replica server that managed my requests with tag: "<<idTag.GetData()<<" \033[0m"<<endl;
-                cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"\033[0;32mCLIENT: packetIdTag: \": "<<idTag.GetData()<<"\""<<(*RTTTracer)[idTag.GetData()]<<"\033[0m"<<endl; //here using operator overload
-
+                cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"\033[0;32mCLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\" which is the replica server that managed my requests with tag: "<<idTag.GetData()<<" \033[0m"<<endl;
+                cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"\033[0;32mCLIENT: packetIdTag: \": "<<idTag.GetData()<<"\""<<(*RTTTracer)[idTag.GetData()]<<"\033[0m"<<endl; //here using operator overload
             }
         }
 
@@ -149,6 +152,7 @@ class CustomStarNode : public Object {
         Ptr<Node> starNode;
         Ptr<LoadBalancer> lb;
         uint exposingRcvPort;
+        uint nPacketToSend;
         Ipv4Address starNodeAddr;
         ApplicationContainer applicationContainer; 
         unordered_map<uint, pair<Time, Time> >* RTTTracer;
@@ -158,7 +162,7 @@ class CustomStarNode : public Object {
 
 
         void AddTagCallback(Ptr<const Packet> packet) {
-
+            /*to fix is always 0*/
             (*RTTTracer)[packet->GetUid()] = make_pair(Simulator::Now(), Time()); //for the second element use the default constructor to create an empty time
 
             CustomTag idTag;    //identify the single packet

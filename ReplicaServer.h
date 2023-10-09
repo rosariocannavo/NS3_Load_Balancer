@@ -21,6 +21,7 @@
 using namespace ns3;
 using namespace std;
 
+
 /**
  * Allocate a server in a replica node to satisfy the requests of the lb using a client. Server and Client are managed using CustomServer and CustomClient
  * 
@@ -76,35 +77,21 @@ class ReplicaServer : public Object {
             StickyTag receivedSticky;
             packet->PeekPacketTag(receivedSticky);
 
-            std::cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender and tag: \""<<idTag.GetData()<<"\""<<endl;
+            std::cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"REPLICA: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4<<" using my other interface containing message: \" " <<payload<<" \" as the original sender and tag: \""<<idTag.GetData()<<"\""<<endl;
+            
 
-            //simulate the processing request time (0.1-1.5) seconds
-            auto randomSleep = []() {
-                std::random_device rd;
-                std::mt19937 gen(rd());
-                std::uniform_real_distribution<> dis(1, 2.5); // Define the range
-
-                double sleepTime = dis(gen);
-                std::chrono::milliseconds sleepDuration(static_cast<int>(sleepTime * 1000));
-                cout<<"\033[0;34mReplica: response solving time: "<<std::to_string(sleepDuration.count())<<"\033[0m "<<endl;
-
-                std::this_thread::sleep_for(sleepDuration);
-            };
-
-            /*apply delay only if not sticky*/
+            /*apply delay based on sticky*/
             if(receivedSticky.GetFlag() == 0) {
-
-                randomSleep();
-
+                //Non sticky    
+                simulateExecTime(1,2.5, 0); 
             }else {
-
-                cout<<"\033[0;34mReplica: response solving time: None cause of sticky behaviour"<<"\033[0m "<<endl;
-
+                //sticky
+                simulateExecTime(0.1,1, 1);    
             }
             
 
             /* replying to the load balancer using the other port -> done instantiating a custom client*/
-            cout<<"\033[0;33mAt time: "<<Simulator::Now()<<"\033[0m "<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<idTag.GetData()<<endl;
+            cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"REPLICA: I am "<<replicaAddr<<" Replying for the request sent by: "<<payload<<" (by lb), with tag: "<<idTag.GetData()<<endl;
             Ptr<CustomClient> replicaClient = CreateObject<CustomClient>(this->replicaNode);
             replicaClient->sendTo(fromIpv4, this->loadBalancerPort, payload, idTag);
         }
@@ -135,11 +122,33 @@ class ReplicaServer : public Object {
     
         Ptr<Node> replicaNode;
         Ipv4Address replicaAddr; 
-        //Ptr<Socket> socket; 
         uint exposingReplicaPort;
         uint loadBalancerPort;
-
         Ptr<CustomServer> server; 
+
+
+        void simulateExecTime(double min, double max, uint flag) {
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_real_distribution<> dis(min, max); // Define the range
+
+            double sleepTime = dis(gen);
+
+            auto startTime = std::chrono::high_resolution_clock::now();
+            while (true) {
+                auto currentTime = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> elapsedTime = currentTime - startTime;
+                if (elapsedTime.count() >= (int)sleepTime) {
+                    break; // Exit the loop when the desired time has passed
+                }
+            }
+
+
+            if(flag) cout<<"\033[0;34mReplica: response solving time: "<<sleepTime<<"s <STICKY>\033[0m "<<endl;
+            else     cout<<"\033[0;34mReplica: response solving time: "<<sleepTime<<"s <NON STICKY>\033[0m "<<endl;
+            
+        }
+        
 
 };
 

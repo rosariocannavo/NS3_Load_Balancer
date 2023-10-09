@@ -5,6 +5,8 @@ This document provides an overview of the parameters for the system. These param
 ## Parameters
 
 1. **nSpokes:** The size of nodes in the star.
+
+2. **seed:** The seed for the star generator.
    
 2. **Number of Replica Servers:** The total number of replica servers used in the system.
 
@@ -18,4 +20,6 @@ This document provides an overview of the parameters for the system. These param
 
 7. **Data Rate of Each Channel:** The data rate (bandwidth) of each communication channel in the system. This parameter defines the rate at which data can be transmitted over the channel.
 
-8. **Dimension of the Sticky Cache:** The number of maximum entry of the cache for sticky sessione
+8. **Dimension of the Sticky Cache:** The number of maximum entry of the cache for sticky session
+
+9. **Algorithm:** The algorithm used by the load balancer
