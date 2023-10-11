@@ -13,6 +13,8 @@
 #include "ns3/udp-socket.h"
 
 #include "TimeStampTag.h"
+#include "CustomTime.h"
+
 
 using namespace ns3;
 using namespace std;
@@ -40,7 +42,7 @@ class CustomClient : public Object {
         /*this function uses ellipsis operator to adapt to a list of generic parameters*/
         template <typename... Tags>
         void sendTo(Ipv4Address receiver, uint bindingPort, string message, Tags... tags) {
-            cout << "\033[0;33mAt time: " << Simulator::Now().GetSeconds() << "\033[0m "
+            cout << "\033[0;33mAt time: " << CustomTime::getNowInTime().GetSeconds() << "\033[0m "
                 << "CC: I am " << this->node->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal()
                 << " sending custom message \"" << message << "\" to " << receiver
                 << " on port " << bindingPort << endl;

@@ -14,6 +14,7 @@
 #include "LoadBalancer.h"
 #include "ReplicaServer.h"
 #include "CustomStarNode.h"
+#include "CustomTime.h"
 
 #define LISTENINGCLIENTPORT 8080
 #define LISTENINGLBPORTFORCLIENT 9090
@@ -30,6 +31,8 @@ using namespace std;
  * star (gw->) p2p (lb->) replica 
 */
 
+
+
 int main (int argc, char *argv[]) {
     std::cout << "__cplusplus value: " << __cplusplus << std::endl;
 
@@ -39,9 +42,10 @@ int main (int argc, char *argv[]) {
    
     uint32_t nSpokes = 100; //number of nodes in the star
     uint32_t seed = 123;
-    uint32_t nReplicaServers = 3;
-    uint32_t nActiveClient = 10;
-    uint32_t nPacketSentByEachClient = 10;
+    uint32_t nReplicaServers = 1;
+    uint32_t nActiveClient = 5;
+    uint32_t nPacketSentByEachClient = 5;
+    uint32_t packetSecondsInterval = 1;
     string   starDataRate = "1Mbps";
     string   starDelay = "2ms";
     double   clientChannelErrorRate = 0;
@@ -59,6 +63,7 @@ int main (int argc, char *argv[]) {
     cmd.AddValue ("nReplicaServers", "Number of replica server to allocate", nReplicaServers);
     cmd.AddValue ("nActiveClient", "The total number of client nodes that request packets from the load balancer (1 to nSpokes)", nActiveClient);
     cmd.AddValue ("nPacketSentByEachClient", "The number of packets sent by each client node to the load balancer", nPacketSentByEachClient);
+    cmd.AddValue ("packetSecondsInterval", "The time interval between one packet send and another of a client (in Seconds)", packetSecondsInterval);
     cmd.AddValue ("starDataRate", "The data rate (bandwidth) of the star channel. This parameter defines the rate at which data can be transmitted over the channel", starDataRate);
     cmd.AddValue ("starDelay", "The delay (latency) of the star channel. This parameter defines the time it takes for packets to traverse a channel", starDelay);
     cmd.AddValue ("clientChannelErrorRate", "The error rate (or packet loss rate) of the communication channel between clients and the load balancer (0.10 = 10%)", clientChannelErrorRate);
@@ -185,6 +190,8 @@ int main (int argc, char *argv[]) {
     if(p2pDX == replicaSX) cout<<"TRUE"<<endl;
     else cout<<"FALSE"<<endl;
 
+    
+    cout<<"AT THE MOMENT THE TIMESTAMPS IGNORE THE EXECUTION TIME OF THE REPLICASERVERS"<<endl;
 
     //allocate Servers on each node of the replica network
     Ptr<ReplicaServer> replicaServers[replicaNodes.GetN()-1];
@@ -218,36 +225,29 @@ int main (int argc, char *argv[]) {
     Ptr<CustomStarNode> starNodes[nSpokes];
 
     for(uint i=0; i<nSpokes; i++) { 
-        starNodes[i] = CreateObject<CustomStarNode>(star.GetSpokeNode(i), LISTENINGCLIENTPORT, lb, nPacketSentByEachClient);
+        starNodes[i] = CreateObject<CustomStarNode>(star.GetSpokeNode(i), LISTENINGCLIENTPORT, lb, nPacketSentByEachClient, packetSecondsInterval, i);
     }
     
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(1, nSpokes-1); 
-    
+
+
     for(uint i=0;i<nActiveClient; i++) {    //number of client which partecipate to the simulation 
-
-
-       
         int random_node = dis(gen);  
 
         Ptr<CustomStarNode> selectedClient = starNodes[random_node];
 
-        cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
+        cout<<"\033[0;33mAt time: " << CustomTime::getNowInTime().GetSeconds()<<"\033[0m "<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
 
-        //selectedClient->start();
+        selectedClient->start();
 
-        std::thread thread([&selectedClient]() {
-            selectedClient->start();
-        });
-
-
-        thread.detach();
-
-        
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
+
+
+
+
    
     Simulator::Run();
     Simulator::Destroy();

@@ -12,14 +12,16 @@ This document provides an overview of the parameters for the system. These param
 
 3. **Number of Packets Sent by Each Client:** The number of packets sent by each client node to the load balancer or other nodes.
 
-4. **Number of Clients Requesting Packets:** The total number of client nodes that request packets from the load balancer or other nodes.
+4. **Packet Seconds Interval: ** "The time interval between one packet send and another of a client (in Seconds).
 
-5. **Error Rate of the Clients-LB Channel:** The error rate (or packet loss rate) of the communication channel between clients and the load balancer.
+5. **Number of Clients Requesting Packets:** The total number of client nodes that request packets from the load balancer or other nodes.
 
-6. **Delay of Each Channel:** The delay (latency) of each communication channel in the system. This parameter defines the time it takes for packets to traverse a channel.
+6. **Error Rate of the Clients-LB Channel:** The error rate (or packet loss rate) of the communication channel between clients and the load balancer.
 
-7. **Data Rate of Each Channel:** The data rate (bandwidth) of each communication channel in the system. This parameter defines the rate at which data can be transmitted over the channel.
+7. **Delay of Each Channel:** The delay (latency) of each communication channel in the system. This parameter defines the time it takes for packets to traverse a channel.
 
-8. **Dimension of the Sticky Cache:** The number of maximum entry of the cache for sticky session
+8. **Data Rate of Each Channel:** The data rate (bandwidth) of each communication channel in the system. This parameter defines the rate at which data can be transmitted over the channel.
 
-9. **Algorithm:** The algorithm used by the load balancer
+9. **Dimension of the Sticky Cache:** The number of maximum entry of the cache for sticky session
+
+10. **Algorithm:** The algorithm used by the load balancer

@@ -75,6 +75,8 @@ class TimestampTag : public Tag {
 
         Time m_timestamp;
 
+        
+
 };
 
 #endif
