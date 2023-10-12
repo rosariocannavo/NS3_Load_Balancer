@@ -17,11 +17,7 @@
 #include <sys/types.h>
 
 #include "CustomServer.h"
-#include "TimeStampTag.h"
 #include "CustomClient.h"
-#include "CustomTime.h"
-#include "DelayTag.h"
-
 
 using namespace ns3;
 using namespace std;
@@ -31,6 +27,7 @@ namespace fs = std::filesystem;
 
 ostream& operator<<(ostream& os, const unordered_map<uint, pair<Time, Time> >* RTTTracer) {
     double totalRTT = 0.0;
+    int skippedRTT = 0;
     for (const auto& pair : *RTTTracer) {
         os << "Key: " << pair.first<<": ";
         os << " { sndTime: ";
@@ -38,13 +35,21 @@ ostream& operator<<(ostream& os, const unordered_map<uint, pair<Time, Time> >* R
         os << ", rcvTime: ";
         os << pair.second.second.GetSeconds()<<"s";
         os << " }, RTT: ";
-        Time RTT = pair.second.second - pair.second.first; 
-        os << RTT.GetSeconds(); 
-        totalRTT += RTT.GetSeconds();
-        os << "s\n";
+        if(pair.second.second > pair.second.first) {
+
+            Time RTT = pair.second.second - pair.second.first; 
+            totalRTT += RTT.GetSeconds();
+            os << RTT.GetSeconds(); 
+            os << "s\n";
+
+        } else { 
+            skippedRTT++;
+            os << "skip\n"; 
+        }
+
     }
 
-    os <<endl<<"meanRTT: "<<totalRTT / RTTTracer->size()<<endl;
+    os <<endl<<"meanRTT: "<<totalRTT / (RTTTracer->size() - skippedRTT)<<endl;
 
     return os;
 }
@@ -83,6 +88,7 @@ class CustomStarNode : public Object {
             this->PacketSecondsInterval = PacketSecondsInterval;
             this->fileId = fileId;
 
+            this->nPacketRcvAsResponse = 0;
             //install a server in the node
             this->rcvServer = CreateObject<CustomServer>(this->starNode, this->starNodeAddr, this->exposingRcvPort);
 
@@ -122,9 +128,11 @@ class CustomStarNode : public Object {
             
             while ((packet = socket->RecvFrom(from))) {
                 /*get the rcv time to calculate the rtt*/
-                Time rcvTime =CustomTime::getNowInTime();    
+                Time rcvTime = Simulator::Now();    
 
-                
+                /*increment the number of received packet*/
+                this->nPacketRcvAsResponse++;
+
                 InetSocketAddress fromAddr = InetSocketAddress::ConvertFrom(from);
                 Ipv4Address fromIpv4 = fromAddr.GetIpv4();
 
@@ -132,27 +140,27 @@ class CustomStarNode : public Object {
                 CustomTag idTag;
                 packet->PeekPacketTag(idTag);
 
-                /*retrieve the delay tag*/
-                DelayTag delayTag;
-                packet->PeekPacketTag(delayTag);
                 
                 /*insert the rcv time in the custom structure -> rember to take the tag, the packet->guid is from the received not from the original*/
-                /*add the computational delay*/
-                (*RTTTracer)[idTag.GetData()].second = rcvTime + ns3::Seconds(delayTag.GetDelay()); 
-
-                /*write in a file the logs of the client*/
-                    
-                ofstream outputFile("/home/rosario/clientRTT/client"+to_string(this->fileId)+".txt");
-                outputFile<< this->RTTTracer;
-                outputFile.close();
+                (*RTTTracer)[idTag.GetData()].second = rcvTime; 
 
 
+                if(this->nPacketRcvAsResponse == this->nPacketToSend) {
+                    cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"CLIENT "<<this->starNodeAddr<<"received all packets"<<endl;
+                    /*write in a file the logs of the client*/
+                    ofstream outputFile("/home/rosario/clientRTT2/client"+to_string(this->fileId)+".txt");
+                    outputFile<< this->RTTTracer;
+                    outputFile.close();
+                    //cout<<this->RTTTracer;
+                }
+              
+
+                
                 uint8_t *buffer = new uint8_t[packet->GetSize ()];
                 packet->CopyData(buffer, packet->GetSize ());
                 std::string payload = std::string((char*)buffer);   
-
-                cout<<"\033[0;33mAt time: " << CustomTime::getNowInTime().GetSeconds()<<"\033[0m "<<"\033[0;32mCLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\" which is the replica server that managed my requests with tag: "<<idTag.GetData()<<" \033[0m"<<endl;
-                cout<<"\033[0;33mAt time: " << CustomTime::getNowInTime().GetSeconds()<<"\033[0m "<<"\033[0;32mCLIENT: packetIdTag: \": "<<idTag.GetData()<<"\""<<(*RTTTracer)[idTag.GetData()]<<"\033[0m"<<endl; //here using operator overload
+                cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"\033[0;32mCLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\" which is the replica server that managed my requests with tag: "<<idTag.GetData()<<" \033[0m"<<endl;
+                cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"\033[0;32mCLIENT: packetIdTag: \": "<<idTag.GetData()<<"\""<<(*RTTTracer)[idTag.GetData()]<<"\033[0m"<<endl; //here using operator overload
             }
         }
 
@@ -186,6 +194,11 @@ class CustomStarNode : public Object {
             return this->PacketSecondsInterval;
         }
 
+        
+        unordered_map<uint, pair<Time, Time> >* getClientStats() {
+            return this->RTTTracer;
+        }
+
 
         static TypeId GetTypeId(void) {
             static TypeId tid = TypeId("CustomStarNode")
@@ -203,6 +216,7 @@ class CustomStarNode : public Object {
         Ptr<LoadBalancer> lb;
         uint exposingRcvPort;
         uint nPacketToSend;
+        uint nPacketRcvAsResponse;
         uint PacketSecondsInterval;
         uint fileId;
         Ipv4Address starNodeAddr;
@@ -215,7 +229,7 @@ class CustomStarNode : public Object {
 
 
         void AddTagCallback(Ptr<const Packet> packet) {
-            (*RTTTracer)[packet->GetUid()].first = CustomTime::getNowInTime(); 
+            (*RTTTracer)[packet->GetUid()].first = Simulator::Now(); 
 
             CustomTag idTag;    //identify the single packet
             idTag.SetData(packet->GetUid());

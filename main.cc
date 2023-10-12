@@ -14,7 +14,6 @@
 #include "LoadBalancer.h"
 #include "ReplicaServer.h"
 #include "CustomStarNode.h"
-#include "CustomTime.h"
 
 #define LISTENINGCLIENTPORT 8080
 #define LISTENINGLBPORTFORCLIENT 9090
@@ -42,9 +41,9 @@ int main (int argc, char *argv[]) {
    
     uint32_t nSpokes = 100; //number of nodes in the star
     uint32_t seed = 123;
-    uint32_t nReplicaServers = 1;
-    uint32_t nActiveClient = 5;
-    uint32_t nPacketSentByEachClient = 5;
+    uint32_t nReplicaServers = 5;
+    uint32_t nActiveClient = 2;
+    uint32_t nPacketSentByEachClient = 10;
     uint32_t packetSecondsInterval = 1;
     string   starDataRate = "1Mbps";
     string   starDelay = "2ms";
@@ -199,15 +198,10 @@ int main (int argc, char *argv[]) {
 
     for(uint i=1; i<replicaNodes.GetN();i++) {
         replicaServers[i-1] = CreateObject<ReplicaServer>(replicaNodes.Get(i), LISTENINGREPLICAPORT, LISTENINGLBPORTFORREPLICA); 
-
-         std::thread thread([&replicaServers, i ]() {
-            replicaServers[i-1]->start();
-        });
-        thread.detach();
     }
 
     for(uint i=1; i<replicaNodes.GetN();i++) {
-        //replicaServers[i-1]->start(); 
+        replicaServers[i-1]->start(); 
     }
 
     
@@ -215,10 +209,7 @@ int main (int argc, char *argv[]) {
     //create a load balancer that expose itself
     Ptr<Node> lb_node = p2pNodes.Get(0);
     Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(lb_node, LISTENINGLBPORTFORCLIENT, LISTENINGLBPORTFORREPLICA, LISTENINGREPLICAPORT , LISTENINGCLIENTPORT, replicaNodes, selectedAlgorithm, stickyCacheDim); 
-    //lb->start();
-
-    std::thread lbThread([lb]() {lb->start();} );
-    lbThread.detach();
+    lb->start();
 
 
     //allocate on each star node a client to receive responses
@@ -231,24 +222,17 @@ int main (int argc, char *argv[]) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(1, nSpokes-1); 
-
-
     for(uint i=0;i<nActiveClient; i++) {    //number of client which partecipate to the simulation 
         int random_node = dis(gen);  
 
         Ptr<CustomStarNode> selectedClient = starNodes[random_node];
 
-        cout<<"\033[0;33mAt time: " << CustomTime::getNowInTime().GetSeconds()<<"\033[0m "<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
+        cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
 
         selectedClient->start();
-
-        //std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
 
 
-
-
-   
     Simulator::Run();
     Simulator::Destroy();
 
