@@ -49,7 +49,8 @@ ostream& operator<<(ostream& os, const unordered_map<uint, pair<Time, Time> >* R
 
     }
 
-    os <<endl<<"meanRTT: "<<totalRTT / (RTTTracer->size() - skippedRTT)<<endl;
+    os << endl<<"meanRTT: "<<totalRTT / (RTTTracer->size() - skippedRTT)<<endl;
+    os << "received packet: "<<RTTTracer->size() - skippedRTT<<endl;
 
     return os;
 }
@@ -130,9 +131,6 @@ class CustomStarNode : public Object {
                 /*get the rcv time to calculate the rtt*/
                 Time rcvTime = Simulator::Now();    
 
-                /*increment the number of received packet*/
-                this->nPacketRcvAsResponse++;
-
                 InetSocketAddress fromAddr = InetSocketAddress::ConvertFrom(from);
                 Ipv4Address fromIpv4 = fromAddr.GetIpv4();
 
@@ -144,15 +142,15 @@ class CustomStarNode : public Object {
                 /*insert the rcv time in the custom structure -> rember to take the tag, the packet->guid is from the received not from the original*/
                 (*RTTTracer)[idTag.GetData()].second = rcvTime; 
 
-
-                if(this->nPacketRcvAsResponse == this->nPacketToSend) {
-                    cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"CLIENT "<<this->starNodeAddr<<"received all packets"<<endl;
+                /*increment the number of received packet*/
+                //if(++this->nPacketRcvAsResponse == this->nPacketToSend) {
+                    cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"CLIENT "<<this->starNodeAddr<<" received all packets"<<endl;
                     /*write in a file the logs of the client*/
                     ofstream outputFile("/home/rosario/clientRTT2/client"+to_string(this->fileId)+".txt");
                     outputFile<< this->RTTTracer;
                     outputFile.close();
                     //cout<<this->RTTTracer;
-                }
+                //}
               
 
                 
@@ -235,6 +233,7 @@ class CustomStarNode : public Object {
             idTag.SetData(packet->GetUid());
             packet->AddPacketTag(idTag);
         }
+
   
 };
 

@@ -9,11 +9,12 @@
 #include "ns3/mobility-module.h"
 #include "ns3/csma-module.h"
 
-#include <thread>
+#include <vector>
 
 #include "LoadBalancer.h"
 #include "ReplicaServer.h"
 #include "CustomStarNode.h"
+#include "Logger.h"
 
 #define LISTENINGCLIENTPORT 8080
 #define LISTENINGLBPORTFORCLIENT 9090
@@ -41,7 +42,7 @@ int main (int argc, char *argv[]) {
    
     uint32_t nSpokes = 100; //number of nodes in the star
     uint32_t seed = 123;
-    uint32_t nReplicaServers = 5;
+    uint32_t nReplicaServers = 1;
     uint32_t nActiveClient = 2;
     uint32_t nPacketSentByEachClient = 10;
     uint32_t packetSecondsInterval = 1;
@@ -218,6 +219,9 @@ int main (int argc, char *argv[]) {
     for(uint i=0; i<nSpokes; i++) { 
         starNodes[i] = CreateObject<CustomStarNode>(star.GetSpokeNode(i), LISTENINGCLIENTPORT, lb, nPacketSentByEachClient, packetSecondsInterval, i);
     }
+
+    
+    Logger logger;
     
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -227,15 +231,29 @@ int main (int argc, char *argv[]) {
 
         Ptr<CustomStarNode> selectedClient = starNodes[random_node];
 
+        /*every time a node is selected add it to the logger watcher*/
+        logger.addNode(selectedClient);
+
         cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
 
         selectedClient->start();
-    }
+    }    
 
 
+    //this func get the stop time  for now a longer time is a patch   
+    Simulator::Schedule(Seconds(20.0), &Logger::getStats, &logger);
+
+    //this stop at the end of the simulation  fix
+    // if(Simulator::IsFinished) {
+    //     Simulator::Schedule(ns3::Seconds(0), &Logger::getStats, &logger);
+    // }  
+    
     Simulator::Run();
-    Simulator::Destroy();
 
+    
+    
+    Simulator::Destroy();
+    
     return 0;
 
 }
