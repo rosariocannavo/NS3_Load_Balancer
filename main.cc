@@ -42,7 +42,7 @@ int main (int argc, char *argv[]) {
    
     uint32_t nSpokes = 100; //number of nodes in the star
     uint32_t seed = 123;
-    uint32_t nReplicaServers = 1;
+    uint32_t nReplicaServers = 3;
     uint32_t nActiveClient = 2;
     uint32_t nPacketSentByEachClient = 10;
     uint32_t packetSecondsInterval = 1;
@@ -241,7 +241,7 @@ int main (int argc, char *argv[]) {
 
 
     //this func get the stop time  for now a longer time is a patch   
-    Simulator::Schedule(Seconds(20.0), &Logger::getStats, &logger);
+    Simulator::Schedule(Seconds(100.0), &Logger::getStats, &logger);
 
     //this stop at the end of the simulation  fix
     // if(Simulator::IsFinished) {
