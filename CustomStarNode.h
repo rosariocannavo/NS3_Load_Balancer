@@ -24,7 +24,6 @@ using namespace std;
 namespace fs = std::filesystem;
 
 
-
 ostream& operator<<(ostream& os, const unordered_map<uint, pair<Time, Time> >* RTTTracer) {
     double totalRTT = 0.0;
     int skippedRTT = 0;
@@ -46,6 +45,7 @@ ostream& operator<<(ostream& os, const unordered_map<uint, pair<Time, Time> >* R
             skippedRTT++;
             os << "skip\n"; 
         }
+        
 
     }
 
@@ -75,6 +75,7 @@ ostream& operator<<(ostream& os, const pair<Time, Time>& timePair) {
  * 
  * Allocate a server in a client node (from the star) to receive requests to the load balancer
  * this class does not use customclient because is used for simulation
+ * 
 */
 class CustomStarNode : public Object {
 
@@ -152,17 +153,15 @@ class CustomStarNode : public Object {
                 if(isKeyPresent(idTag.GetData())) {
                     (*this->RTTTracer)[idTag.GetData()].second = rcvTime; 
                     this->nPacketRcvAsResponse++; 
-                    cout<<"rcv packet as response "<<nPacketRcvAsResponse<<endl;
                 }
                 
 
                 /*increment the number of received packet*/
-                //if(this->nPacketRcvAsResponse == this->nPacketToSend) {
-                
-                ofstream outputFile("/home/rosario/clientRTT2/client"+to_string(this->fileId)+".txt");
-                outputFile<< this->RTTTracer;
-                outputFile.close();
-                //}
+                if(this->nPacketRcvAsResponse == this->nPacketToSend) {
+                    ofstream outputFile("/home/rosario/clientRTT2/client"+to_string(this->fileId)+".txt");
+                    outputFile<<this->RTTTracer;
+                    outputFile.close();
+                }
               
 
                 
@@ -245,12 +244,21 @@ class CustomStarNode : public Object {
 
         void AddTagCallback(Ptr<const Packet> packet) {
             CustomTag idTag;    //identify the single packet
-            idTag.SetData(packet->GetUid());
+
+            /*use the XOR between packetUid an sender IPaddr as GUID for the packet in the entire simulation*/
+            uint32_t ipInt = this->starNodeAddr.Get();
+            idTag.SetData(packet->GetUid() ^ ipInt);
+
             packet->AddPacketTag(idTag);
+
+            /*add packet to the hashtable*/
             (*RTTTracer)[idTag.GetData()].first = Simulator::Now(); 
+
+            cout<<"LOG: adding tag "<<idTag.GetData()<<" to the table of "<<this->starNodeAddr<<" client"<<endl;
         }
 
 
+        /*check if a packet guid is present in the hashtable*/
         bool isKeyPresent(uint key) {
             if(this->RTTTracer) {
                 auto it = this->RTTTracer->find(key);
@@ -261,7 +269,6 @@ class CustomStarNode : public Object {
             }
         }
 
-  
 };
 
 #endif

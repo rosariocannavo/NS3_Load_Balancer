@@ -15,7 +15,7 @@ using namespace ns3;
 
 /**
  * 
- * TODO: Fix packet loss 
+ * This class Log the data created during the simulation and generate the plot
  * 
 */
 class Logger {
@@ -32,9 +32,7 @@ class Logger {
 
         
         void addNode(Ptr<CustomStarNode> node) {
-        
             this->clientVector.push_back(node);
-
         }
 
 
@@ -45,12 +43,10 @@ class Logger {
 
             Simulator::Stop();
             createPlot();
-
         }   
 
 
         void createPlot() {
-          
             std::string fileNameWithNoExtension = "simulationRTT";
             std::string graphicsFileName        = fileNameWithNoExtension + ".png";
             std::string plotFileName            = fileNameWithNoExtension + ".plt";
@@ -60,7 +56,6 @@ class Logger {
             for(uint i=0; i < clientVector.size(); i++) {
                 dataset[i].SetTitle("client "+to_string(i));
                 dataset[i].SetStyle (Gnuplot2dDataset::LINES_POINTS);
-               // dataset[i].SetExtra("lw 10");
             }
            
             dataset[clientVector.size()].SetTitle ("meanRTT");
@@ -92,14 +87,11 @@ class Logger {
                 }
 
                 /*meanRTT for one client accumulated with the other*/
-                 cout<<"CULO: "<<npacketsPerClient<<endl;
                 totSum += partialSum/npacketsPerClient;
-                
-               
-                cout<<"meanRTT for client "<<client<<": "<<partialSum.GetSeconds()/npacketsPerClient<<endl;
+                               
+                cout<<"meanRTT for client "<<client<<": "<<partialSum.GetSeconds()/npacketsPerClient<<" and npackets: "<<npacketsPerClient<<endl;
+
                 //dataset[client].Add(client, partialSum.GetSeconds()/npacketsPerClient); //aggiunge solo le medie
-
-
                 client++;
             }
 
@@ -107,20 +99,17 @@ class Logger {
 
             cout<<"Total meanRTT with: "<<this->nReplicaServers<<" replicas: "<<totalMeanRTT<<endl;
 
+
             dataset[clientVector.size()].Add(0, totalMeanRTT);
             dataset[clientVector.size()].Add(this->nPacketSendedByClient,totalMeanRTT);
             
         
             Gnuplot plot ("simulationRTTFile");
-
             plot.SetTitle ("replicaserver: "+to_string(this->nReplicaServers));
             plot.SetTerminal ("png");
             plot.SetLegend ("packet id", "RTT");
-            
             plot.AppendExtra ("set terminal pngcairo enhanced size 1200,1200"); 
-
             plot.AppendExtra ("set xrange [0:"+to_string(this->nPacketSendedByClient)+"]");     //xmax = npackets
-            
             string ytick = "set ytics format \"%.3f\"";
             plot.AppendExtra(ytick);
             plot.AppendExtra ("set ytics 0.000, 0.150, 20.00");

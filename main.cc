@@ -40,9 +40,9 @@ int main (int argc, char *argv[]) {
    
     uint32_t nSpokes = 100; //number of nodes in the star
     uint32_t seed = 321;
-    uint32_t nReplicaServers = 5;
-    uint32_t nActiveClient = 2;
-    uint32_t nPacketSentByEachClient = 100;
+    uint32_t nReplicaServers = 3;
+    uint32_t nActiveClient = 10;
+    uint32_t nPacketSentByEachClient = 10;
     uint32_t packetSecondsInterval = 1;
     string   starDataRate = "1Mbps";
     string   starDelay = "2ms";
@@ -218,14 +218,25 @@ int main (int argc, char *argv[]) {
 
     
     Logger logger(nReplicaServers, nPacketSentByEachClient);
-    
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<> dis(1, nSpokes-1); 
-    for(uint i=0;i<nActiveClient; i++) {    //number of client which partecipate to the simulation 
-        int random_node = dis(gen);  
 
-        Ptr<CustomStarNode> selectedClient = starNodes[random_node];
+    std::set<int> uniqueNumbers;
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+
+
+    while (uniqueNumbers.size() < nActiveClient) {
+        int randomNum = std::rand() % (nSpokes + 1);
+        if (uniqueNumbers.count(randomNum) == 0) {
+            uniqueNumbers.insert(randomNum);
+        }
+    }
+
+
+    for(const int& num : uniqueNumbers) {    //number of client which partecipate to the simulation 
+
+        
+       // int random_node = dis(gen);  
+
+        Ptr<CustomStarNode> selectedClient = starNodes[num];
 
         /*every time a node is selected add it to the logger watcher*/
         logger.addNode(selectedClient);
@@ -237,7 +248,7 @@ int main (int argc, char *argv[]) {
 
 
     //this func get the stop time  for now a longer time is a patch   
-    Simulator::Schedule(Seconds(100.0), &Logger::getStats, &logger);
+    Simulator::Schedule(Seconds(1000.0), &Logger::getStats, &logger);
 
     Simulator::Run();
     Simulator::Destroy();
