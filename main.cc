@@ -31,8 +31,6 @@ using namespace std;
  * star (gw->) p2p (lb->) replica 
 */
 
-
-
 int main (int argc, char *argv[]) {
     std::cout << "__cplusplus value: " << __cplusplus << std::endl;
 
@@ -41,19 +39,19 @@ int main (int argc, char *argv[]) {
     Config::SetDefault ("ns3::OnOffApplication::MaxBytes", UintegerValue (50000));
    
     uint32_t nSpokes = 100; //number of nodes in the star
-    uint32_t seed = 123;
-    uint32_t nReplicaServers = 3;
+    uint32_t seed = 321;
+    uint32_t nReplicaServers = 5;
     uint32_t nActiveClient = 2;
-    uint32_t nPacketSentByEachClient = 10;
+    uint32_t nPacketSentByEachClient = 100;
     uint32_t packetSecondsInterval = 1;
     string   starDataRate = "1Mbps";
     string   starDelay = "2ms";
     double   clientChannelErrorRate = 0;
     string   P2PDataRate = "1Mbps";
     string   P2PDelay = "2ms";
-    string   replicaDataRate = "100Mbps";
-    uint32_t replicaDelay = 6000560;
-    uint32_t stickyCacheDim = nSpokes/3;
+    string   replicaDataRate = "1Mbps";
+    string   replicaDelay = "2ms";
+    uint32_t stickyCacheDim = 5;//nSpokes/3;
     uint32_t selectedAlgorithm = 0;
     
     
@@ -139,7 +137,7 @@ int main (int argc, char *argv[]) {
 
     CsmaHelper csmah;
     csmah.SetChannelAttribute ("DataRate", StringValue (replicaDataRate));
-    csmah.SetChannelAttribute ("Delay", TimeValue (NanoSeconds (replicaDelay)));
+    csmah.SetChannelAttribute ("Delay", StringValue (replicaDelay));
 
     NetDeviceContainer csmaDevices;
     csmaDevices = csmah.Install (replicaNodes);
@@ -191,8 +189,6 @@ int main (int argc, char *argv[]) {
     else cout<<"FALSE"<<endl;
 
     
-    cout<<"AT THE MOMENT THE TIMESTAMPS IGNORE THE EXECUTION TIME OF THE REPLICASERVERS"<<endl;
-
     //allocate Servers on each node of the replica network
     Ptr<ReplicaServer> replicaServers[replicaNodes.GetN()-1];
 
@@ -221,7 +217,7 @@ int main (int argc, char *argv[]) {
     }
 
     
-    Logger logger;
+    Logger logger(nReplicaServers, nPacketSentByEachClient);
     
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -235,23 +231,15 @@ int main (int argc, char *argv[]) {
         logger.addNode(selectedClient);
 
         cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
-
         selectedClient->start();
+      
     }    
 
 
     //this func get the stop time  for now a longer time is a patch   
     Simulator::Schedule(Seconds(100.0), &Logger::getStats, &logger);
 
-    //this stop at the end of the simulation  fix
-    // if(Simulator::IsFinished) {
-    //     Simulator::Schedule(ns3::Seconds(0), &Logger::getStats, &logger);
-    // }  
-    
     Simulator::Run();
-
-    
-    
     Simulator::Destroy();
     
     return 0;

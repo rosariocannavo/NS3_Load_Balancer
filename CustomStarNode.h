@@ -93,7 +93,7 @@ class CustomStarNode : public Object {
             //install a server in the node
             this->rcvServer = CreateObject<CustomServer>(this->starNode, this->starNodeAddr, this->exposingRcvPort);
 
-            RTTTracer = new unordered_map<uint, pair<Time, Time> >();
+            this->RTTTracer = new unordered_map<uint, pair<Time, Time> >();
 
         }   
 
@@ -110,8 +110,15 @@ class CustomStarNode : public Object {
             // install a client with clientHelper
             UdpEchoClientHelper echoClientHelper(lb->getAddressForClient(), lb->getClientPort());
   
-            echoClientHelper.SetAttribute ("MaxPackets", UintegerValue (this->nPacketToSend));    //each node send 5 packets
-            echoClientHelper.SetAttribute ("Interval", TimeValue (Seconds (this->PacketSecondsInterval))); //interval between a packet and another
+            echoClientHelper.SetAttribute ("MaxPackets", UintegerValue (this->nPacketToSend));  
+          
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_real_distribution<> dis(1.0, 2.0);
+            double delayTime = dis(gen); 
+
+            echoClientHelper.SetAttribute ("Interval", TimeValue (Seconds (delayTime     /*this->PacketSecondsInterval*/))); //interval between a packet and another
+
             echoClientHelper.SetAttribute ("PacketSize", UintegerValue (1024));    
             this->applicationContainer = echoClientHelper.Install(this->starNode);
         
@@ -119,14 +126,14 @@ class CustomStarNode : public Object {
             Ptr<Application> app = this->applicationContainer.Get(0);
             Ptr<UdpEchoClient> client = DynamicCast<UdpEchoClient>(app);
             client->TraceConnectWithoutContext("Tx", MakeCallback(&CustomStarNode::AddTagCallback, this));
+        
         }
 
      
-        
         void ReceivePacketAsFinalResponse(Ptr<Socket> socket) {
             Ptr<Packet> packet;
             Address from;
-            
+        
             while ((packet = socket->RecvFrom(from))) {
                 /*get the rcv time to calculate the rtt*/
                 Time rcvTime = Simulator::Now();    
@@ -140,25 +147,31 @@ class CustomStarNode : public Object {
 
                 
                 /*insert the rcv time in the custom structure -> rember to take the tag, the packet->guid is from the received not from the original*/
-                (*RTTTracer)[idTag.GetData()].second = rcvTime; 
+                //check if the packet was sended
+                //ALCUNI PACCHETTI VENGONO PERSI 
+                if(isKeyPresent(idTag.GetData())) {
+                    (*this->RTTTracer)[idTag.GetData()].second = rcvTime; 
+                    this->nPacketRcvAsResponse++; 
+                    cout<<"rcv packet as response "<<nPacketRcvAsResponse<<endl;
+                }
+                
 
                 /*increment the number of received packet*/
-                //if(++this->nPacketRcvAsResponse == this->nPacketToSend) {
-                    cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"CLIENT "<<this->starNodeAddr<<" received all packets"<<endl;
-                    /*write in a file the logs of the client*/
-                    ofstream outputFile("/home/rosario/clientRTT2/client"+to_string(this->fileId)+".txt");
-                    outputFile<< this->RTTTracer;
-                    outputFile.close();
-                    //cout<<this->RTTTracer;
+                //if(this->nPacketRcvAsResponse == this->nPacketToSend) {
+                
+                ofstream outputFile("/home/rosario/clientRTT2/client"+to_string(this->fileId)+".txt");
+                outputFile<< this->RTTTracer;
+                outputFile.close();
                 //}
               
 
                 
                 uint8_t *buffer = new uint8_t[packet->GetSize ()];
                 packet->CopyData(buffer, packet->GetSize ());
-                std::string payload = std::string((char*)buffer);   
+                std::string payload = std::string((char*)buffer); 
+
                 cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"\033[0;32mCLIENT: I am "<<this->starNodeAddr<<", my request has been fulfilled by: "<<fromIpv4<<" I received response: \""<<payload<<"\" which is the replica server that managed my requests with tag: "<<idTag.GetData()<<" \033[0m"<<endl;
-                cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"\033[0;32mCLIENT: packetIdTag: \": "<<idTag.GetData()<<"\""<<(*RTTTracer)[idTag.GetData()]<<"\033[0m"<<endl; //here using operator overload
+                cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"\033[0;32mCLIENT: packetIdTag: \": "<<idTag.GetData()<<"\""<<(*this->RTTTracer)[idTag.GetData()]<<"\033[0m"<<endl; //here using operator overload
             }
         }
 
@@ -190,6 +203,10 @@ class CustomStarNode : public Object {
 
         uint getPacketSecondsInterval() {
             return this->PacketSecondsInterval;
+        }
+
+        uint getNPacketReceivedAsResponse() {
+            return this->nPacketRcvAsResponse;
         }
 
         
@@ -227,11 +244,21 @@ class CustomStarNode : public Object {
 
 
         void AddTagCallback(Ptr<const Packet> packet) {
-            (*RTTTracer)[packet->GetUid()].first = Simulator::Now(); 
-
             CustomTag idTag;    //identify the single packet
             idTag.SetData(packet->GetUid());
             packet->AddPacketTag(idTag);
+            (*RTTTracer)[idTag.GetData()].first = Simulator::Now(); 
+        }
+
+
+        bool isKeyPresent(uint key) {
+            if(this->RTTTracer) {
+                auto it = this->RTTTracer->find(key);
+                return (it != this->RTTTracer->end());    //t o f
+
+            } else {
+                return false;
+            }
         }
 
   

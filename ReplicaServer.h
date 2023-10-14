@@ -42,6 +42,8 @@ class ReplicaServer : public Object {
         this->server = CreateObject<CustomServer>(this->replicaNode, this->replicaAddr, this->exposingReplicaPort);
 
         this->replicaClient = CreateObject<CustomClient>(this->replicaNode);
+
+        this->event = Simulator::Schedule(ns3::Seconds(0), &ReplicaServer::getReplicaAddr, this);
     }
 
 
@@ -85,15 +87,19 @@ class ReplicaServer : public Object {
             /*apply delay based on sticky*/
             if(receivedSticky.GetFlag() == 0) {
                 //Non sticky        
-                delay = simulateExecTime(4.0, 6.0, 0 );
+                delay = simulateExecTime(5.0, 7.0, 0 );
             }else {
                 //sticky
-                delay = simulateExecTime(2.0, 3.0, 1);
+                delay = simulateExecTime(2.0, 4.0, 1);
             }
+            
+            cout<<"TEMPO RIMASTO: "<<Simulator::GetDelayLeft(this->event).GetSeconds()<<endl;
+        
+            this->event = Simulator::Schedule(ns3::Seconds(delay) + Simulator::GetDelayLeft(this->event), &ReplicaServer::replyToClient, this, fromIpv4, this->loadBalancerPort, payload, idTag);
 
-            Simulator::Schedule(ns3::Seconds(delay), &ReplicaServer::replyToClient, this, fromIpv4, this->loadBalancerPort, payload, idTag);
-          
-        }
+            //Simulator::Schedule(ns3::Seconds(delay), &ReplicaServer::replyToClient, this, fromIpv4, this->loadBalancerPort, payload, idTag);
+            //this->event =  Simulator::Schedule((Simulator::GetDelayLeft(this->event) + ns3::Seconds(delay)), &ReplicaServer::replyToClient, this, fromIpv4, this->loadBalancerPort, payload, idTag);
+        }   
     }
 
 
@@ -124,6 +130,7 @@ class ReplicaServer : public Object {
         uint loadBalancerPort;
         Ptr<CustomServer> server; 
         Ptr<CustomClient> replicaClient;
+        ns3::EventId event; 
 
 
         void replyToClient(Ipv4Address ipAddress, uint port, string payload, CustomTag idTag) {

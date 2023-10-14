@@ -4,7 +4,6 @@
 #include "ns3/gnuplot.h"
 #include "ns3/core-module.h"
 
-
 #include "CustomStarNode.h"
 
 #include <vector>
@@ -12,16 +11,21 @@
 
 using namespace std;
 using namespace ns3;
+
+
 /**
  * 
- * TODO: Fix this class
+ * TODO: Fix packet loss 
  * 
 */
 class Logger {
 
     public:
 
-        Logger() {}
+        Logger( uint nReplicaServers, uint nPacketSendedByClient) {
+            this->nPacketSendedByClient = nPacketSendedByClient;
+            this->nReplicaServers = nReplicaServers;
+        }
 
 
         ~Logger() {}
@@ -46,79 +50,99 @@ class Logger {
 
 
         void createPlot() {
-            std::string fileNameWithNoExtension = "DemoPlot";
+          
+            std::string fileNameWithNoExtension = "simulationRTT";
             std::string graphicsFileName        = fileNameWithNoExtension + ".png";
             std::string plotFileName            = fileNameWithNoExtension + ".plt";
 
-            Gnuplot2dDataset dataset[3];
-            dataset[0].SetTitle ("client 0");
-            dataset[1].SetTitle ("client 1");
-            dataset[2].SetTitle ("meanRTT");
+            Gnuplot2dDataset dataset[this->clientVector.size()+1];
 
-            dataset[0].SetStyle (Gnuplot2dDataset::LINES_POINTS);
-            dataset[1].SetStyle (Gnuplot2dDataset::LINES_POINTS);
-            dataset[2].SetStyle (Gnuplot2dDataset::LINES_POINTS);
-            dataset[2].SetExtra("lc rgb \"red\"");
+            for(uint i=0; i < clientVector.size(); i++) {
+                dataset[i].SetTitle("client "+to_string(i));
+                dataset[i].SetStyle (Gnuplot2dDataset::LINES_POINTS);
+               // dataset[i].SetExtra("lw 10");
+            }
+           
+            dataset[clientVector.size()].SetTitle ("meanRTT");
+            dataset[clientVector.size()].SetStyle (Gnuplot2dDataset::LINES);
+            dataset[clientVector.size()].SetExtra("lc rgb \"red\"");
+
 
             int client = 0;
-            int npackets = 0;
-            Time sum = 0.0;
+            Time totSum;
+            Time partialSum;
 
             for (const auto& node : this->clientVector) {
-
+                
+                partialSum = ns3::Seconds(0);
+                int npacketsPerClient = 0;
                 int i=0;
                 std::unordered_map<uint, std::pair<Time, Time>>* clientStats = node->getClientStats();
 
                 for (const auto& pair : *clientStats) {
-
                     if(pair.second.second > pair.second.first) {
 
-                        sum += pair.second.second - pair.second.first;
-                        npackets++;
-                        cout<<i<<" client "<<client<<" "<<pair.second.second.GetSeconds() - pair.second.first.GetSeconds()<<endl;
-                        dataset[client].Add(i, (pair.second.second.GetSeconds() - pair.second.first.GetSeconds()));
+                        partialSum += pair.second.second - pair.second.first;
+                        npacketsPerClient++;
+
+                        dataset[client].Add(i, (pair.second.second.GetSeconds() - pair.second.first.GetSeconds())); //aggiunge tutti gli RTT
                         i++;
 
                     }
-                 
                 }
 
-                cout<<endl;
+                /*meanRTT for one client accumulated with the other*/
+                 cout<<"CULO: "<<npacketsPerClient<<endl;
+                totSum += partialSum/npacketsPerClient;
+                
+               
+                cout<<"meanRTT for client "<<client<<": "<<partialSum.GetSeconds()/npacketsPerClient<<endl;
+                //dataset[client].Add(client, partialSum.GetSeconds()/npacketsPerClient); //aggiunge solo le medie
+
+
                 client++;
             }
 
+            double totalMeanRTT = totSum.GetSeconds()/this->clientVector.size();
 
-            dataset[2].Add(0, sum.GetSeconds()/npackets);
-            dataset[2].Add(10,sum.GetSeconds()/npackets);
+            cout<<"Total meanRTT with: "<<this->nReplicaServers<<" replicas: "<<totalMeanRTT<<endl;
+
+            dataset[clientVector.size()].Add(0, totalMeanRTT);
+            dataset[clientVector.size()].Add(this->nPacketSendedByClient,totalMeanRTT);
             
         
-            Gnuplot plot ("testFile");
-    
-            plot.SetTitle ("replicaserver: 2");
+            Gnuplot plot ("simulationRTTFile");
+
+            plot.SetTitle ("replicaserver: "+to_string(this->nReplicaServers));
             plot.SetTerminal ("png");
             plot.SetLegend ("packet id", "RTT");
             
-            plot.AppendExtra ("set terminal pngcairo enhanced size 800,800"); 
+            plot.AppendExtra ("set terminal pngcairo enhanced size 1200,1200"); 
 
-            plot.AppendExtra ("set xrange [0:10]");     //xmax = npackets
+            plot.AppendExtra ("set xrange [0:"+to_string(this->nPacketSendedByClient)+"]");     //xmax = npackets
             
             string ytick = "set ytics format \"%.3f\"";
             plot.AppendExtra(ytick);
-            plot.AppendExtra ("set ytics 0.000, 0.100, 10.00");
+            plot.AppendExtra ("set ytics 0.000, 0.150, 20.00");
+            plot.AppendExtra ("set xtics 0, 1, 100");
+
+            for(uint i=0; i < clientVector.size(); i++) {
+                plot.AddDataset (dataset[i]);
+            }
           
-            plot.AddDataset (dataset[0]);
-            plot.AddDataset (dataset[1]);
-          
-            plot.AddDataset (dataset[2]);
-            std::ofstream plotFile (plotFileName.c_str());
-            plot.GenerateOutput (plotFile);
-            plotFile.close ();
+            plot.AddDataset(dataset[clientVector.size()]);
+   
+            std::ofstream plotFile(plotFileName.c_str());
+            plot.GenerateOutput(plotFile);
+            plotFile.close();
         }
 
    
     private:
 
         std::vector<Ptr<CustomStarNode>> clientVector;
+        uint nPacketSendedByClient;
+        uint nReplicaServers;
 
 };
 

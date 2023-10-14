@@ -111,12 +111,19 @@ class LoadBalancer : public Object {
                 uint8_t *buffer = new uint8_t[packet->GetSize ()];
                 packet->CopyData(buffer, packet->GetSize ());
                 std::string payload = std::string((char*)buffer);
-                
+
 
                 cout <<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"LBfromReplica: I am: "<<receiver<< "I Received a packet of size " << dataSize << " bytes from " << fromIpv4 << " which is a replicaserver, to send to"<<payload<<endl;
                 
                 //from string to address
                 ns3::Ipv4Address clientAddress(payload.c_str());
+
+
+                /*UPDATE CACHE here at receiving time altrimenti il primo pacchetto ci sta tanto e tutti gli altri poco*/
+                stickyCache->put(clientAddress, fromIpv4);  
+                cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"\033[0;34mLB: receiving first response for "<<clientAddress<<" adding to CACHE\033[0m "<<endl;
+
+
 
                 cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"LBfromReplicaSender: sending obtained response for tag: "<<idTag.GetData()<<" to the client "<<payload.c_str()<<" who sent the request"<<endl;
 
@@ -146,10 +153,6 @@ class LoadBalancer : public Object {
 
 
                 cout <<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"LB: I am: "<<receiver<< " I Received a packet of size " << dataSize << " bytes from " << fromIpv4 <<" whit idTag: \""<<idTag.GetData()<<"\""<<endl;
-
-
-                //TODO: implement here a cache for value
-
 
 
                 /*Implementing a cache with n entries for sticky behaviour*/
@@ -182,8 +185,9 @@ class LoadBalancer : public Object {
                             RRaddr = RandomSelection();
                             break;
                     }
-                   
-                    stickyCache->put(fromIpv4, RRaddr);     //add in the cache the pair <client,server> for further use
+
+                    /*the cache will be uploaded when the response to the first packet has been received*/
+                    //stickyCache->put(fromIpv4, RRaddr);     //add in the cache the pair <client,server> for further use
 
                     stickyTag.SetFlag(0);
                 }
