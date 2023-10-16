@@ -48,7 +48,7 @@ class Logger {
 
 
         void createPlot() {
-            std::string fileNameWithNoExtension = "simulationRTT";
+            std::string fileNameWithNoExtension = "SimulationRTT";
             std::string graphicsFileName        = fileNameWithNoExtension + ".png";
             std::string plotFileName            = fileNameWithNoExtension + ".plt";
 

@@ -41,9 +41,9 @@ int main (int argc, char *argv[]) {
     uint32_t nSpokes = 100; //number of nodes in the star
     uint32_t seed = 321;
     uint32_t nReplicaServers = 3;
-    uint32_t nActiveClient = 2;
-    uint32_t nPacketSentByEachClient = 2;
-    uint32_t packetSecondsInterval = 2;
+    uint32_t nActiveClient = 30;
+    uint32_t nPacketSentByEachClient = 5;
+    uint32_t packetSecondsInterval = 1;
     string   starDataRate = "1Mbps";
     string   starDelay = "2ms";
     double   clientChannelErrorRate = 0;
@@ -51,8 +51,8 @@ int main (int argc, char *argv[]) {
     string   P2PDelay = "2ms";
     string   replicaDataRate = "1Mbps";
     string   replicaDelay = "2ms";
-    uint32_t stickyCacheDim = nSpokes/3; //5
-    uint32_t selectedAlgorithm = 0;
+    uint32_t stickyCacheDim = nSpokes/3; 
+    uint32_t selectedAlgorithm = 2;
     
     
     CommandLine cmd;
@@ -247,7 +247,7 @@ int main (int argc, char *argv[]) {
 
 
     //this func get the stop time  for now a longer time is a patch   
-    Simulator::Schedule(Seconds(1000), &Logger::getStats, &logger);
+    Simulator::Schedule(Seconds(1000000), &Logger::getStats, &logger);
 
     Simulator::Run();
     Simulator::Destroy();

@@ -166,7 +166,7 @@ class LoadBalancer : public Object {
 
                     RRaddr = *stickyCache->get(fromIpv4);   //retrive from the cache the server which served the client before
 
-                    stickyTag.SetFlag(1);
+                    stickyTag.SetFlag(1); 
                 }
                 else {
 
@@ -302,9 +302,8 @@ class LoadBalancer : public Object {
                 sum += static_cast<int>(c);
             }
 
-            // Calculate the value in the range [0, N-1]
-            uint hashIndex =  (sum % availableServers.GetN()) + 1;
-
+            // Calculate the value in the range [1, N-1]
+            uint hashIndex = (sum % (availableServers.GetN() - 1)) + 1;
             return availableServers.Get(hashIndex)->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
         }
         
