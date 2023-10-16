@@ -113,12 +113,12 @@ class CustomStarNode : public Object {
   
             echoClientHelper.SetAttribute ("MaxPackets", UintegerValue (this->nPacketToSend));  
           
-            std::random_device rd;
-            std::mt19937 gen(rd());
-            std::uniform_real_distribution<> dis(1.0, 2.0);
-            double delayTime = dis(gen); 
+            // std::random_device rd;
+            // std::mt19937 gen(rd());
+            // std::uniform_real_distribution<> dis(1.0, 2.0);
+            // double delayTime = dis(gen); 
 
-            echoClientHelper.SetAttribute ("Interval", TimeValue (Seconds (delayTime     /*this->PacketSecondsInterval*/))); //interval between a packet and another
+            echoClientHelper.SetAttribute ("Interval", TimeValue (Seconds (this->PacketSecondsInterval))); //interval between a packet and another
 
             echoClientHelper.SetAttribute ("PacketSize", UintegerValue (1024));    
             this->applicationContainer = echoClientHelper.Install(this->starNode);
@@ -203,6 +203,7 @@ class CustomStarNode : public Object {
         uint getPacketSecondsInterval() {
             return this->PacketSecondsInterval;
         }
+        
 
         uint getNPacketReceivedAsResponse() {
             return this->nPacketRcvAsResponse;
@@ -258,7 +259,7 @@ class CustomStarNode : public Object {
         }
 
 
-        /*check if a packet guid is present in the hashtable*/
+        /*check if a packet guid^ip is present in the hashtable*/
         bool isKeyPresent(uint key) {
             if(this->RTTTracer) {
                 auto it = this->RTTTracer->find(key);

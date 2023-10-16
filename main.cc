@@ -41,9 +41,9 @@ int main (int argc, char *argv[]) {
     uint32_t nSpokes = 100; //number of nodes in the star
     uint32_t seed = 321;
     uint32_t nReplicaServers = 3;
-    uint32_t nActiveClient = 10;
-    uint32_t nPacketSentByEachClient = 10;
-    uint32_t packetSecondsInterval = 1;
+    uint32_t nActiveClient = 2;
+    uint32_t nPacketSentByEachClient = 2;
+    uint32_t packetSecondsInterval = 2;
     string   starDataRate = "1Mbps";
     string   starDelay = "2ms";
     double   clientChannelErrorRate = 0;
@@ -51,7 +51,7 @@ int main (int argc, char *argv[]) {
     string   P2PDelay = "2ms";
     string   replicaDataRate = "1Mbps";
     string   replicaDelay = "2ms";
-    uint32_t stickyCacheDim = 5;//nSpokes/3;
+    uint32_t stickyCacheDim = nSpokes/3; //5
     uint32_t selectedAlgorithm = 0;
     
     
@@ -89,7 +89,7 @@ int main (int argc, char *argv[]) {
     PointToPointStarHelper star (nSpokes, StarpointToPoint);
     InternetStackHelper StarStackIP;
     star.InstallStack (StarStackIP);
-    star.AssignIpv4Addresses (Ipv4AddressHelper ("10.1.1.0", "/24"));   //STAR NET ADDRESS
+    star.AssignIpv4Addresses (Ipv4AddressHelper ("10.1.0.0", "/22"));   //STAR NET ADDRESS up to 1000 nodes
     Ptr<Node> StarHub = star.GetHub();
     Ipv4Address StarHub_addr = StarHub->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
     std::cout<<"star Hub Address: "<<StarHub_addr<<endl;
@@ -117,7 +117,7 @@ int main (int argc, char *argv[]) {
     stackH.Install (p2pNodes.Get(0));
 
     Ipv4AddressHelper addressH;
-    addressH.SetBase ("12.1.1.0", "/24");    //BUS NET ADDRESS
+    addressH.SetBase ("12.1.0.0", "/30");    //BUS NET ADDRESS
     Ipv4InterfaceContainer p2pInterfaces;
     p2pInterfaces = addressH.Assign(p2pDevices);
 
@@ -146,7 +146,7 @@ int main (int argc, char *argv[]) {
     replicaStackH.Install (replicaNodes);
 
     Ipv4AddressHelper replicaAddressH;
-    replicaAddressH.SetBase("14.1.1.0", "/24");
+    replicaAddressH.SetBase("14.1.0.0", "/28"); //up to 10 nodes
     Ipv4InterfaceContainer csmaInterfaces;
     csmaInterfaces = replicaAddressH.Assign (csmaDevices);
 
@@ -215,27 +215,26 @@ int main (int argc, char *argv[]) {
     for(uint i=0; i<nSpokes; i++) { 
         starNodes[i] = CreateObject<CustomStarNode>(star.GetSpokeNode(i), LISTENINGCLIENTPORT, lb, nPacketSentByEachClient, packetSecondsInterval, i);
     }
-
     
-    Logger logger(nReplicaServers, nPacketSentByEachClient);
 
+    /*initialize the logger*/
+    Logger logger(nActiveClient, nReplicaServers, nPacketSentByEachClient);
+
+
+    /*generate the random number which represent the n client selected*/
     std::set<int> uniqueNumbers;
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
 
     while (uniqueNumbers.size() < nActiveClient) {
-        int randomNum = std::rand() % (nSpokes + 1);
+        int randomNum = std::rand() % (nSpokes-1 + 1);
         if (uniqueNumbers.count(randomNum) == 0) {
             uniqueNumbers.insert(randomNum);
         }
     }
 
 
-    for(const int& num : uniqueNumbers) {    //number of client which partecipate to the simulation 
-
-        
-       // int random_node = dis(gen);  
-
+    for(const int& num : uniqueNumbers) {    
         Ptr<CustomStarNode> selectedClient = starNodes[num];
 
         /*every time a node is selected add it to the logger watcher*/
@@ -248,7 +247,7 @@ int main (int argc, char *argv[]) {
 
 
     //this func get the stop time  for now a longer time is a patch   
-    Simulator::Schedule(Seconds(1000.0), &Logger::getStats, &logger);
+    Simulator::Schedule(Seconds(1000), &Logger::getStats, &logger);
 
     Simulator::Run();
     Simulator::Destroy();

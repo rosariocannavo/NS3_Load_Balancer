@@ -22,7 +22,8 @@ class Logger {
 
     public:
 
-        Logger( uint nReplicaServers, uint nPacketSendedByClient) {
+        Logger(uint nClient, uint nReplicaServers, uint nPacketSendedByClient) {
+            this->nClient = nClient;
             this->nPacketSendedByClient = nPacketSendedByClient;
             this->nReplicaServers = nReplicaServers;
         }
@@ -66,7 +67,7 @@ class Logger {
             int client = 0;
             Time totSum;
             Time partialSum;
-
+            double maxTime = 0.0;
             for (const auto& node : this->clientVector) {
                 
                 partialSum = ns3::Seconds(0);
@@ -80,6 +81,8 @@ class Logger {
                         partialSum += pair.second.second - pair.second.first;
                         npacketsPerClient++;
 
+                        if(pair.second.second.GetSeconds() > maxTime) maxTime = pair.second.second.GetSeconds();
+                        
                         dataset[client].Add(i, (pair.second.second.GetSeconds() - pair.second.first.GetSeconds())); //aggiunge tutti gli RTT
                         i++;
 
@@ -112,8 +115,8 @@ class Logger {
             plot.AppendExtra ("set xrange [0:"+to_string(this->nPacketSendedByClient)+"]");     //xmax = npackets
             string ytick = "set ytics format \"%.3f\"";
             plot.AppendExtra(ytick);
-            plot.AppendExtra ("set ytics 0.000, 0.150, 20.00");
-            plot.AppendExtra ("set xtics 0, 1, 100");
+            plot.AppendExtra ("set ytics 0.000, 1.500, "+to_string(maxTime));
+            plot.AppendExtra ("set xtics 0, 1,"+to_string(this->nPacketSendedByClient));
 
             for(uint i=0; i < clientVector.size(); i++) {
                 plot.AddDataset (dataset[i]);
@@ -130,6 +133,7 @@ class Logger {
     private:
 
         std::vector<Ptr<CustomStarNode>> clientVector;
+        uint nClient;
         uint nPacketSendedByClient;
         uint nReplicaServers;
 

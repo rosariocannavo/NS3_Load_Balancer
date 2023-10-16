@@ -43,7 +43,7 @@ class ReplicaServer : public Object {
 
         this->replicaClient = CreateObject<CustomClient>(this->replicaNode);
 
-        this->event = Simulator::Schedule(ns3::Seconds(2), &ReplicaServer::getReplicaAddr, this);
+        this->event = Simulator::Schedule(ns3::Seconds(0), &ReplicaServer::getReplicaAddr, this);
     }
 
 
@@ -87,17 +87,13 @@ class ReplicaServer : public Object {
             /*apply delay based on sticky*/
             if(receivedSticky.GetFlag() == 0) {
                 //Non sticky        
-                delay = simulateExecTime(3.0, 5.0, 0 );
+                delay = simulateExecTime(0.6, 1.0, 0 );
             }else {
                 //sticky
-                delay = simulateExecTime(1.0, 2.0, 1);
+                delay = simulateExecTime(0.1, 0.5, 1);
             }
             
-            /**
-             * TODO: fix this behaviour
-            */
             this->event = Simulator::Schedule(ns3::Seconds(delay)+ Simulator::GetDelayLeft(this->event), &ReplicaServer::replyToClient, this, fromIpv4, this->loadBalancerPort, payload, idTag);
-            cout<<"DELAY LEFT "<<Simulator::GetDelayLeft(this->event)<<endl;
 
             //Simulator::Schedule(ns3::Seconds(delay), &ReplicaServer::replyToClient, this, fromIpv4, this->loadBalancerPort, payload, idTag);
         }   
