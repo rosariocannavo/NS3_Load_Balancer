@@ -1,9 +1,10 @@
 
 # Load Balancing in ns3
 
+In this project, a load balancer has been implemented within the NS3 (Network Simulator 3) environment to simulate various execution scenarios and evaluate its performance. Load balancing is a critical aspect of modern computer networks and distributed systems, aiming to distribute incoming traffic or computational tasks evenly across multiple servers or resources. The utilization of NS3, a widely-used network simulation tool, provides an ideal platform for assessing the effectiveness of load balancing strategies in different network configurations and under varying workloads.
+
 ![Scenario](img/scenario.png)
 
-In this project, a load balancer has been implemented within the NS3 (Network Simulator 3) environment to simulate various execution scenarios and evaluate its performance. Load balancing is a critical aspect of modern computer networks and distributed systems, aiming to distribute incoming traffic or computational tasks evenly across multiple servers or resources. The utilization of NS3, a widely-used network simulation tool, provides an ideal platform for assessing the effectiveness of load balancing strategies in different network configurations and under varying workloads.
 ## Installation
 
 ### Requirements
