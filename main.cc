@@ -11,10 +11,10 @@
 
 #include <vector>
 
-#include "LoadBalancer.h"
-#include "ReplicaServer.h"
-#include "CustomStarNode.h"
-#include "Logger.h"
+#include "src/LoadBalancer.h"
+#include "src/ReplicaServer.h"
+#include "src/CustomStarNode.h"
+#include "src/Logger.h"
 
 #define LISTENINGCLIENTPORT 8080
 #define LISTENINGLBPORTFORCLIENT 9090
