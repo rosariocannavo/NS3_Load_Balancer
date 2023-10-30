@@ -53,6 +53,7 @@ The simulation is highly configurable. The following options are available:
 Usage: ./ns3 run "main.cc [options]"
 
 Program Options:
+    --numberOfSimulation	"Number of simulation to execute with actual configuration [10]"
     --nSpokes:                  "Number of external nodes to place in the star [100]"
     --seed:                     "RNG seed [321]"
     --nReplicaServers:          "Number of replica server to allocate [3]"
