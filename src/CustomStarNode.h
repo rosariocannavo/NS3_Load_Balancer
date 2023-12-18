@@ -71,8 +71,6 @@ ostream& operator<<(ostream& os, const pair<Time, Time>& timePair) {
 
 /**
  * 
- * Conf Param Here
- * 
  * Allocate a server in a client node (from the star) to receive requests to the load balancer
  * this class does not use customclient because is used for simulation
  * 

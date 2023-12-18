@@ -15,6 +15,7 @@
 #include "src/ReplicaServer.h"
 #include "src/CustomStarNode.h"
 #include "src/Logger.h"
+#include "src/Experiment.h"     
 
 #define LISTENINGCLIENTPORT 8080
 #define LISTENINGLBPORTFORCLIENT 9090
@@ -24,25 +25,20 @@
 using namespace ns3;
 using namespace std;
 
-/**
- * 
- * Conf Param here 
- * 
- * star (gw->) p2p (lb->) replica 
-*/
-
 int main (int argc, char *argv[]) {
     std::cout << "__cplusplus value: " << __cplusplus << std::endl;
+    
 
     Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (1000));
     Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("100kb/s"));
     Config::SetDefault ("ns3::OnOffApplication::MaxBytes", UintegerValue (50000));
-   
-    uint32_t nSpokes = 100; //number of nodes in the star
+    
+    uint numberOfSimulation = 100;
+    uint32_t nSpokes = 100; 
     uint32_t seed = 321;
-    uint32_t nReplicaServers = 3;
-    uint32_t nActiveClient = 30;
-    uint32_t nPacketSentByEachClient = 5;
+    uint32_t nReplicaServers = 1;
+    uint32_t nActiveClient = 100;
+    uint32_t nPacketSentByEachClient = 1;   //1o if nreplicas is 10
     uint32_t packetSecondsInterval = 1;
     string   starDataRate = "1Mbps";
     string   starDelay = "2ms";
@@ -51,11 +47,12 @@ int main (int argc, char *argv[]) {
     string   P2PDelay = "2ms";
     string   replicaDataRate = "1Mbps";
     string   replicaDelay = "2ms";
-    uint32_t stickyCacheDim = nSpokes/3; 
+    uint32_t stickyCacheDim = 1; //nSpokes/3; 
     uint32_t selectedAlgorithm = 2;
     
     
     CommandLine cmd;
+    cmd.AddValue ("numberOfSimulation", "Number of simulation to execute with actual configuration", numberOfSimulation);
     cmd.AddValue ("nSpokes", "Number of external nodes to place in the star", nSpokes);
     cmd.AddValue ("seed", "RNG seed", seed);
     cmd.AddValue ("nReplicaServers", "Number of replica server to allocate", nReplicaServers);
@@ -79,179 +76,35 @@ int main (int argc, char *argv[]) {
     LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
     LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
 
-    
+    //struct to pass system params to Experiment class
+    Params param;
 
+    param.numberOfSimulation = numberOfSimulation;
+    param.nSpokes = nSpokes;
+    param.seed = seed;
+    param.nReplicaServers = nReplicaServers;
+    param.nActiveClient = nActiveClient;
+    param.nPacketSentByEachClient = nPacketSentByEachClient;
+    param.packetSecondsInterval = packetSecondsInterval;
+    param.starDataRate = starDataRate;
+    param.starDelay = starDelay;
+    param.clientChannelErrorRate = clientChannelErrorRate;
+    param.P2PDataRate = P2PDataRate;
+    param.P2PDelay = P2PDelay;
+    param.replicaDataRate = replicaDataRate;
+    param.replicaDelay = replicaDelay;
+    param.stickyCacheDim = stickyCacheDim;
+    param.selectedAlgorithm = selectedAlgorithm;
 
-    //STAR ALLOCATION
-    PointToPointHelper StarpointToPoint;
-    StarpointToPoint.SetDeviceAttribute ("DataRate", StringValue (starDataRate));
-    StarpointToPoint.SetChannelAttribute ("Delay", StringValue (starDelay));
-    PointToPointStarHelper star (nSpokes, StarpointToPoint);
-    InternetStackHelper StarStackIP;
-    star.InstallStack (StarStackIP);
-    star.AssignIpv4Addresses (Ipv4AddressHelper ("10.1.0.0", "/22"));   //STAR NET ADDRESS up to 1000 nodes
-    Ptr<Node> StarHub = star.GetHub();
-    Ipv4Address StarHub_addr = StarHub->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    std::cout<<"star Hub Address: "<<StarHub_addr<<endl;
+    Logger logger(nActiveClient, nReplicaServers, nPacketSentByEachClient,numberOfSimulation);
 
+    Experiment experiment(logger);
 
-
-    //P2P ALLOCATION -> P2P 0 will be the load balancer
-    NodeContainer p2pNodes;
-    p2pNodes.Create(1); //p2pNodes.Get(0) will be the load balancer
-    p2pNodes.Add(star.GetSpokeNode(floor(nSpokes/2)));  //a mid star node will be the gateway  
-    PointToPointHelper P2PH;
-    P2PH.SetDeviceAttribute("DataRate", StringValue(P2PDataRate));
-    P2PH.SetChannelAttribute("Delay", StringValue(P2PDelay));
-    NetDeviceContainer p2pDevices;
-    p2pDevices = StarpointToPoint.Install(p2pNodes);
-
-
-    /*packet loss in the channel between star and loadbalancer*/
-    Ptr<RateErrorModel> em = CreateObject<RateErrorModel> ();
-    em->SetAttribute ("ErrorRate", DoubleValue (clientChannelErrorRate)); // Set the packet loss rate to 10% (0.1) ATTENTION ATTENTION ATTENTIONATTENTION ATTENTIONATTENTION ATTENTION
-    p2pDevices.Get(1)->SetAttribute ("ReceiveErrorModel", PointerValue (em));
-
-
-    InternetStackHelper stackH;   //install the stack only on the fresh node, the other 
-    stackH.Install (p2pNodes.Get(0));
-
-    Ipv4AddressHelper addressH;
-    addressH.SetBase ("12.1.0.0", "/30");    //BUS NET ADDRESS
-    Ipv4InterfaceContainer p2pInterfaces;
-    p2pInterfaces = addressH.Assign(p2pDevices);
-
-
-
-    //POPULATE ROUTING TABLE - place it before the replica server so they are unreachable by the star's nodes
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
-    //Ptr<OutputStreamWrapper> stream = Create<OutputStreamWrapper>(&std::cout);
-    //Ipv4RoutingHelper::PrintRoutingTableAllAt( Time (Seconds (10.0)), stream ,Time::S);
-
-
-
-    //REPLICASERVER ALLOCATION
-    NodeContainer replicaNodes;
-    replicaNodes.Add(p2pNodes.Get(0));
-    replicaNodes.Create(nReplicaServers); //number of replicas
-
-    CsmaHelper csmah;
-    csmah.SetChannelAttribute ("DataRate", StringValue (replicaDataRate));
-    csmah.SetChannelAttribute ("Delay", StringValue (replicaDelay));
-
-    NetDeviceContainer csmaDevices;
-    csmaDevices = csmah.Install (replicaNodes);
-
-    InternetStackHelper replicaStackH;
-    replicaStackH.Install (replicaNodes);
-
-    Ipv4AddressHelper replicaAddressH;
-    replicaAddressH.SetBase("14.1.0.0", "/28"); //up to 10 nodes
-    Ipv4InterfaceContainer csmaInterfaces;
-    csmaInterfaces = replicaAddressH.Assign (csmaDevices);
-
-    
-
-    //PRINT GENERAL INFO
-    cout<<"Each client is avaiable at port: "<<LISTENINGCLIENTPORT<<endl;
-
-    Ptr<Node> lb_node_sx = star.GetSpokeNode(floor(nSpokes/2));
-    Ipv4Address rcv_addr_star = lb_node_sx->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();   //star interface
-    std::cout<<"star gateway address on star network: "<<rcv_addr_star<<endl;
-
-    Ptr<Node> lb_addr = p2pNodes.Get(0);
-    
-    Ipv4Address rcv_addr_p2p = lb_addr->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();    //p2p interface
-    std::cout<<"load balancer address on p2p network (for clients): "<<rcv_addr_p2p<<endl<<" reachable at port: "<<LISTENINGLBPORTFORCLIENT<<endl;
-
-    Ptr<Node> lb_node_dx = replicaNodes.Get(0);
-    Ipv4Address rcv_addr_replica = lb_node_dx->GetObject<Ipv4>()->GetAddress(2,0).GetLocal();   //replica node interface
-    std::cout<<"load balancer address on replica network (for replica servers): "<<rcv_addr_replica<<" reachable at port: "<<LISTENINGLBPORTFORREPLICA<<endl;
-
-    cout<<"Replica servers addresses"<<endl;
-    for(uint i=1; i< replicaNodes.GetN(); i++) {
-        cout<<"server "<<i<<" "<<replicaNodes.Get(i)->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()<<" reachable from load balancer at port: "<<LISTENINGREPLICAPORT<<endl;
+    for(uint i=0; i<numberOfSimulation;i++) {
+        param.seed++; //change the simulation seed
+        experiment.Run(param, i);
     }
 
-    
-
-    //COHERENCE TEST -> check if the nodes are equals in the different networks
-    Ptr<Node> starSX = star.GetSpokeNode(floor(nSpokes/2));
-    Ptr<Node> p2pSX = p2pNodes.Get(1);
-
-    if(starSX == p2pSX) cout<<"TRUE"<<endl;
-    else cout<<"FALSE"<<endl;;
-
-    Ptr<Node> p2pDX = p2pNodes.Get(0);
-    Ptr<Node> replicaSX = replicaNodes.Get(0);
-
-    if(p2pDX == replicaSX) cout<<"TRUE"<<endl;
-    else cout<<"FALSE"<<endl;
-
-    
-    //allocate Servers on each node of the replica network
-    Ptr<ReplicaServer> replicaServers[replicaNodes.GetN()-1];
-
-
-    for(uint i=1; i<replicaNodes.GetN();i++) {
-        replicaServers[i-1] = CreateObject<ReplicaServer>(replicaNodes.Get(i), LISTENINGREPLICAPORT, LISTENINGLBPORTFORREPLICA); 
-    }
-
-    for(uint i=1; i<replicaNodes.GetN();i++) {
-        replicaServers[i-1]->start(); 
-    }
-
-    
-
-    //create a load balancer that expose itself
-    Ptr<Node> lb_node = p2pNodes.Get(0);
-    Ptr<LoadBalancer> lb = CreateObject<LoadBalancer>(lb_node, LISTENINGLBPORTFORCLIENT, LISTENINGLBPORTFORREPLICA, LISTENINGREPLICAPORT , LISTENINGCLIENTPORT, replicaNodes, selectedAlgorithm, stickyCacheDim); 
-    lb->start();
-
-
-    //allocate on each star node a client to receive responses
-    Ptr<CustomStarNode> starNodes[nSpokes];
-
-    for(uint i=0; i<nSpokes; i++) { 
-        starNodes[i] = CreateObject<CustomStarNode>(star.GetSpokeNode(i), LISTENINGCLIENTPORT, lb, nPacketSentByEachClient, packetSecondsInterval, i);
-    }
-    
-
-    /*initialize the logger*/
-    Logger logger(nActiveClient, nReplicaServers, nPacketSentByEachClient);
-
-
-    /*generate the random number which represent the n client selected*/
-    std::set<int> uniqueNumbers;
-    std::srand(static_cast<unsigned>(std::time(nullptr)));
-
-
-    while (uniqueNumbers.size() < nActiveClient) {
-        int randomNum = std::rand() % (nSpokes-1 + 1);
-        if (uniqueNumbers.count(randomNum) == 0) {
-            uniqueNumbers.insert(randomNum);
-        }
-    }
-
-
-    for(const int& num : uniqueNumbers) {    
-        Ptr<CustomStarNode> selectedClient = starNodes[num];
-
-        /*every time a node is selected add it to the logger watcher*/
-        logger.addNode(selectedClient);
-
-        cout<<"\033[0;33mAt time: " << Simulator::Now().GetSeconds()<<"\033[0m "<<"node in the star ( "<<selectedClient->getAddress() <<" ) contacting load balancer at addr: "<<lb->getAddressForClient()<<endl;
-        selectedClient->start();
-      
-    }    
-
-
-    //this func get the stop time  for now a longer time is a patch   
-    Simulator::Schedule(Seconds(1000000), &Logger::getStats, &logger);
-
-    Simulator::Run();
-    Simulator::Destroy();
-    
     return 0;
 
 }

@@ -7,7 +7,9 @@ using namespace std;
 using namespace ns3;
 
 /**
+ * 
  * Create a tag which indicates if the session is sticky
+ * 
 */
 class StickyTag : public Tag {
 

@@ -22,120 +22,185 @@ class Logger {
 
     public:
 
-        Logger(uint nClient, uint nReplicaServers, uint nPacketSendedByClient) {
+        Logger(uint nClient, uint nReplicaServers, uint nPacketSendedByClient, uint totalSimulationNumber) {
             this->nClient = nClient;
             this->nPacketSendedByClient = nPacketSendedByClient;
             this->nReplicaServers = nReplicaServers;
+            this->totalSimulationNumber = totalSimulationNumber;
+        }
+
+
+        //copy constructor
+        Logger(const Logger &other) {
+            this->nClient = other.nClient;
+            this->nReplicaServers = other.nReplicaServers;
+            this->nPacketSendedByClient = other.nPacketSendedByClient;
+            this->totalSimulationNumber = other.totalSimulationNumber;
         }
 
 
         ~Logger() {}
 
         
-        void addNode(Ptr<CustomStarNode> node) {
-            this->clientVector.push_back(node);
+        void addNode(Ptr<CustomStarNode> node, int nOfSimulation) {
+            this->simulationMap[nOfSimulation].push_back(node);
         }
 
-
-        void getStats() {
-            Time currentTime = Simulator::Now();
-            std::cout << "Simulation stopped at time " << currentTime.GetSeconds() << " seconds. Calculating stats" << std::endl;
-            cout<<"Watching: "<<this->clientVector.size()<<" clients"<<endl;
-
-            Simulator::Stop();
-            createPlot();
-        }   
-
-
-        void createPlot() {
-            std::string fileNameWithNoExtension = "SimulationRTT";
+        void simulateDisplay() {
+            cout<<"I simulate display"<<endl;
+            std::string fileNameWithNoExtension = "PLOT";
             std::string graphicsFileName        = fileNameWithNoExtension + ".png";
             std::string plotFileName            = fileNameWithNoExtension + ".plt";
 
-            Gnuplot2dDataset dataset[this->clientVector.size()+1];
+            Gnuplot2dDataset dataset[2];
 
-            for(uint i=0; i < clientVector.size(); i++) {
-                dataset[i].SetTitle("client "+to_string(i));
-                dataset[i].SetStyle (Gnuplot2dDataset::LINES_POINTS);
-            }
-           
-            dataset[clientVector.size()].SetTitle ("meanRTT");
-            dataset[clientVector.size()].SetStyle (Gnuplot2dDataset::LINES);
-            dataset[clientVector.size()].SetExtra("lc rgb \"red\"");
+            string title = "% of client within the range";
+            dataset[0].SetTitle(title);
+            dataset[0].SetStyle (Gnuplot2dDataset::LINES_POINTS);
 
-
-            int client = 0;
-            Time totSum;
-            Time partialSum;
-            double maxTime = 0.0;
-            for (const auto& node : this->clientVector) {
-                
-                partialSum = ns3::Seconds(0);
-                int npacketsPerClient = 0;
-                int i=0;
-                std::unordered_map<uint, std::pair<Time, Time>>* clientStats = node->getClientStats();
-
-                for (const auto& pair : *clientStats) {
-                    if(pair.second.second > pair.second.first) {
-
-                        partialSum += pair.second.second - pair.second.first;
-                        npacketsPerClient++;
-
-                        if(pair.second.second.GetSeconds() > maxTime) maxTime = pair.second.second.GetSeconds();
-                        
-                        dataset[client].Add(i, (pair.second.second.GetSeconds() - pair.second.first.GetSeconds())); //aggiunge tutti gli RTT
-                        i++;
-
-                    }
-                }
-
-                /*meanRTT for one client accumulated with the other*/
-                totSum += partialSum/npacketsPerClient;
-                               
-                cout<<"meanRTT for client "<<client<<": "<<partialSum.GetSeconds()/npacketsPerClient<<" and npackets: "<<npacketsPerClient<<endl;
-
-                //dataset[client].Add(client, partialSum.GetSeconds()/npacketsPerClient); //aggiunge solo le medie
-                client++;
-            }
-
-            double totalMeanRTT = totSum.GetSeconds()/this->clientVector.size();
-
-            cout<<"Total meanRTT with: "<<this->nReplicaServers<<" replicas: "<<totalMeanRTT<<endl;
-
-
-            dataset[clientVector.size()].Add(0, totalMeanRTT);
-            dataset[clientVector.size()].Add(this->nPacketSendedByClient,totalMeanRTT);
+            dataset[1].SetTitle ("meanRTT");
+            dataset[1].SetStyle (Gnuplot2dDataset::LINES);
+            dataset[1].SetExtra("lc rgb \"red\"");
             
-        
-            Gnuplot plot ("simulationRTTFile");
+            std::vector<Time> MeanRTT;
+           
+
+
+            for(uint nSim=0; nSim < this->totalSimulationNumber; nSim++) {
+                
+                for (const auto& client : this->simulationMap[nSim]) {
+                    std::unordered_map<uint, std::pair<Time, Time>>* clientStats = client->getClientStats();
+
+
+                    Time clientMeanRTT;
+
+                    for (const auto& timePair : *clientStats) {
+                        clientMeanRTT += timePair.second.second - timePair.second.first;
+                    }
+
+                    MeanRTT.push_back(clientMeanRTT/this->nPacketSendedByClient);
+                }  
+            }
+
+            Time sum;
+            for (uint i = 0; i < MeanRTT.size(); ++i) {
+                sum += MeanRTT[i];
+            }
+
+            double totalMeanRTT = sum.GetSeconds() / MeanRTT.size();
+
+            cout<<"totalMeanRTT: "<<totalMeanRTT<<endl;
+
+            std::sort(MeanRTT.begin(), MeanRTT.end());
+
+            double minTime = 0; 
+            double maxTime = MeanRTT[MeanRTT.size() - 1].GetSeconds();
+
+
+            cout<<"min: "<<minTime<<endl;   
+            cout<<"max: "<<maxTime<<endl;
+
+            double delta = (maxTime - minTime)/100; 
+
+            cout<<"delta: "<<delta<<endl;  
+
+            vector<int> ElementsInRange;
+            for(int i=0; i<100; i++){  
+                ElementsInRange.push_back(countElementsInRange(MeanRTT, minTime, delta*i));
+            }
+
+            int k = 0;
+            for(int elem : ElementsInRange) {
+                cout << "Number of elements in range [" << minTime << ", " << minTime + (delta*k) << "): " << elem <<endl;
+                k++;
+            }
+
+            normalizeToPercentage(ElementsInRange);
+
+            //now is percentage
+            for(int elem : ElementsInRange) {
+                cout <<elem<<", ";
+            }
+            cout<<endl;
+            
+
+            //creating dataset 
+            k = 0;
+            for(int elem : ElementsInRange) {
+                dataset[0].Add(minTime+ (k*delta), elem);
+                k++;
+            }
+       
+
+            Gnuplot plot ("PLOT");
             plot.SetTitle ("replicaserver: "+to_string(this->nReplicaServers));
             plot.SetTerminal ("png");
-            plot.SetLegend ("packet id", "RTT");
+            plot.SetLegend ("MeanRTT + delta", title);
             plot.AppendExtra ("set terminal pngcairo enhanced size 1200,1200"); 
-            plot.AppendExtra ("set xrange [0:"+to_string(this->nPacketSendedByClient)+"]");     //xmax = npackets
-            string ytick = "set ytics format \"%.3f\"";
-            plot.AppendExtra(ytick);
-            plot.AppendExtra ("set ytics 0.000, 1.500, "+to_string(maxTime));
-            plot.AppendExtra ("set xtics 0, 1,"+to_string(this->nPacketSendedByClient));
 
-            for(uint i=0; i < clientVector.size(); i++) {
-                plot.AddDataset (dataset[i]);
-            }
-          
-            plot.AddDataset(dataset[clientVector.size()]);
+
+            plot.AddDataset(dataset[0]);
+
    
             std::ofstream plotFile(plotFileName.c_str());
             plot.GenerateOutput(plotFile);
             plotFile.close();
+
         }
 
-   
+
+        int countElementsInRange(const std::vector<Time>& vec, double x, double delta) {
+            int count = 0;
+            for (Time num : vec) {
+                if (num.GetSeconds() >= x && num.GetSeconds() <= (x + delta)) {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+
+        void normalizeToPercentage(std::vector<int>& numbers) {
+            // Find minimum and maximum values in the vector
+            int minVal = *std::min_element(numbers.begin(), numbers.end());
+            int maxVal = *std::max_element(numbers.begin(), numbers.end());
+
+            // Normalize each element in the vector
+            for (int& num : numbers) {
+                num = static_cast<int>((static_cast<double>(num - minVal) / (maxVal - minVal)) * 100.0);
+            }
+        }
+
+
+        void simulateStats(uint nOfSimulation) {
+            Time currentTime = Simulator::Now();
+            cout << "Simulation "<<nOfSimulation<<" stopped at time " << currentTime.GetSeconds() << " seconds. Calculating stats" << std::endl;
+            cout<<"number of client in simulation "<<nOfSimulation<<": "<<this->simulationMap[nOfSimulation].size()<<endl;
+
+            Simulator::Stop();
+            for (const auto& node : this->simulationMap[nOfSimulation]) {
+               cout<<node->getClientStats()<<endl;
+            }  
+
+            cout<<"TOTAL SIM NUMBER "<<this->totalSimulationNumber<<endl;
+
+            //if all the simulation runned
+            if(nOfSimulation == this->totalSimulationNumber-1) {
+                simulateDisplay();
+            }
+
+            
+        }
+
+
     private:
 
         std::vector<Ptr<CustomStarNode>> clientVector;
         uint nClient;
         uint nPacketSendedByClient;
         uint nReplicaServers;
+        uint totalSimulationNumber;
+        std::map<int, std::vector<Ptr<CustomStarNode>>> simulationMap;
 
 };
 

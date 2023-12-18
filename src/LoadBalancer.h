@@ -26,8 +26,6 @@ using namespace std;
 
 /**
  * 
- * Conf Param here
- * 
  * This class is the heart of the project, allocate a load balancer that listen to the client -> make requests to the replica -> listen the response of the replica -> send the response to the client
  * This class use CustomClient and CustomServer to communicate
  * Only the load balancer knows the addresses of the replica nodes

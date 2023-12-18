@@ -23,9 +23,8 @@ using namespace std;
 
 
 /**
- * Allocate a server in a replica node to satisfy the requests of the lb using a client. Server and Client are managed using CustomServer and CustomClient
  * 
- * Conf param here
+ * Allocate a server in a replica node to satisfy the requests of the lb using a client. Server and Client are managed using CustomServer and CustomClient
  * 
 */
 class ReplicaServer : public Object {
@@ -93,7 +92,7 @@ class ReplicaServer : public Object {
                 delay = simulateExecTime(0.1, 0.5, 1);
             }
             
-            this->event = Simulator::Schedule(ns3::Seconds(delay)+ Simulator::GetDelayLeft(this->event), &ReplicaServer::replyToClient, this, fromIpv4, this->loadBalancerPort, payload, idTag);
+            this->event = Simulator::Schedule(ns3::Seconds(delay) + (Simulator::GetDelayLeft(this->event)), &ReplicaServer::replyToClient, this, fromIpv4, this->loadBalancerPort, payload, idTag);
 
             //Simulator::Schedule(ns3::Seconds(delay), &ReplicaServer::replyToClient, this, fromIpv4, this->loadBalancerPort, payload, idTag);
         }   

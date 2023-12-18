@@ -7,7 +7,9 @@
 #include <string>
 
 /**
+ * 
  * This struct is used to obtain hash of custom types
+ * 
 */
 template <typename KeyType>
 struct PairHash {
