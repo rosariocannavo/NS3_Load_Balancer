@@ -85,7 +85,7 @@ General Arguments:
 
 ```
 ## Example of Usage
-Let's now try running a simulation in which there are 3 replica servers, 20 clients each forwarding 5 packets, and the algorithm used by the load balancer is round robin
+Let's now try running 100 simulation in which there are 3 replica servers, 100 clients each forwarding 10 packets, and the algorithm used by the load balancer is round robin
 ```bash
 ./ns3 run "scratch/LoadBalancerNetwork/main.cc  nSpokes=100 nReplicaServers=3 nActiveClient=20 nPacketSentByEachClient=5 algorithm=0"
 ```
